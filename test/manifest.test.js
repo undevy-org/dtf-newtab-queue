@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { describe, it } from "node:test";
+
+async function readManifest() {
+  const contents = await readFile(
+    new URL("../manifest.json", import.meta.url),
+    "utf8"
+  );
+  return JSON.parse(contents);
+}
+
+describe("manifest", () => {
+  it("uses only the required storage and DTF API privileges", async () => {
+    const manifest = await readManifest();
+
+    assert.deepEqual(manifest.permissions, ["storage"]);
+    assert.deepEqual(manifest.host_permissions, ["https://api.dtf.ru/*"]);
+  });
+});
