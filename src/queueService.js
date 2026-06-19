@@ -90,6 +90,49 @@ function rememberFetch(state, requestedLastId, batch, now) {
   };
 }
 
+function rememberForwardFetch(state, batch, now) {
+  const fetched = normalizeFetchedBatch(batch);
+  const nextLastId = state.lastId === null ? fetched.lastId : state.lastId;
+  const nextState = appendQueueEvent(
+    state,
+    "fetch",
+    {
+      requestedLastId: null,
+      resultCount: fetched.items.length,
+      nextLastId
+    },
+    now
+  );
+
+  return {
+    state: {
+      ...nextState,
+      lastId: nextLastId
+    },
+    items: fetched.items
+  };
+}
+
+function showForwardItems(state, items, now) {
+  if (items.length === 0) {
+    return appendQueueEvent(
+      { ...state, current: null, backlog: [], exhausted: false },
+      "caught-up",
+      { reason: "no-newer-items" },
+      now
+    );
+  }
+
+  const [current, ...backlog] = items;
+
+  return appendQueueEvent(
+    { ...state, current, backlog, exhausted: false },
+    "shown",
+    { id: current.id },
+    now
+  );
+}
+
 function dedupeItems(items, state) {
   const blockedIds = new Set(state.seenIds);
 
@@ -263,6 +306,13 @@ export function createQueueService({
     return fetchUsableItems(state, { startFromFirstPage: true });
   }
 
+  async function fetchNewerItems(state) {
+    const fetched = await fetchNews({});
+    const remembered = rememberForwardFetch(state, fetched, now);
+    const items = dedupeItems(remembered.items, remembered.state);
+    return { state: remembered.state, items };
+  }
+
   async function advance(actionType) {
     const originalState = await store.getState();
 
@@ -291,8 +341,8 @@ export function createQueueService({
     };
 
     try {
-      const fetched = await fetchNextUsableItems(nextState);
-      nextState = showItems(fetched.state, fetched.items, now);
+      const fetched = await fetchNewerItems(nextState);
+      nextState = showForwardItems(fetched.state, fetched.items, now);
     } catch (error) {
       return saveError(originalState, actionType, error);
     }
@@ -391,8 +441,8 @@ export function createQueueService({
         await save(openedState);
 
         try {
-          const fetched = await fetchNextUsableItems(openedState);
-          const nextState = showItems(fetched.state, fetched.items, now);
+          const fetched = await fetchNewerItems(openedState);
+          const nextState = showForwardItems(fetched.state, fetched.items, now);
           return resultFor(await save(nextState));
         } catch (error) {
           return saveError(openedState, "opened", error);
