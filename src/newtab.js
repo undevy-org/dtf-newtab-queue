@@ -133,27 +133,28 @@ function renderCard(state, error = null, busyMessage = "") {
   });
 }
 
-function renderExhausted(state, error = null, busyMessage = "") {
+function renderArchiveEnded(error = null, busyMessage = "") {
   renderShell({
-    title: "Вы прочитали всё",
-    meta: "Новых карточек в очереди нет.",
+    title: "Вы прочитали всё, включая архив",
+    meta: "Новых карточек нет. Можно проверить ещё раз позже.",
     status: busy ? busyMessage : null,
     error,
     actions: [
-      createButton("Проверить ещё раз", "retry", { primary: true }),
+      createButton("Проверить новые", "retry", { primary: true }),
       createButton("Сбросить", "reset")
     ]
   });
 }
 
-function renderRetryableIdle(error = null, busyMessage = "") {
+function renderFork(error = null, busyMessage = "") {
   renderShell({
-    title: "Не удалось загрузить следующую карточку",
-    meta: "Проверьте очередь ещё раз или сбросьте ее.",
+    title: "Вы прочитали всё свежее",
+    meta: "Проверьте новые сверху или загляните глубже в архив.",
     status: busy ? busyMessage : null,
     error,
     actions: [
-      createButton("Проверить ещё раз", "retry", { primary: true }),
+      createButton("Проверить новые", "retry", { primary: true }),
+      createButton("Глубже в архив", "archive"),
       createButton("Сбросить", "reset")
     ]
   });
@@ -175,11 +176,11 @@ function renderResult(result) {
   }
 
   if (state.exhausted) {
-    renderExhausted(state, error, busyMessage);
+    renderArchiveEnded(error, busyMessage);
     return;
   }
 
-  renderRetryableIdle(error, busyMessage);
+  renderFork(error, busyMessage);
 }
 
 function setBusy(nextBusy, message = "") {
@@ -229,6 +230,9 @@ function createUnavailableService(message) {
       return result;
     },
     async openCurrent() {
+      return result;
+    },
+    async loadArchive() {
       return result;
     },
     async retry() {
@@ -304,6 +308,8 @@ if (app) {
       );
     } else if (action === "open") {
       void runAction("Открываю ссылку...", () => service.openCurrent());
+    } else if (action === "archive") {
+      void runAction("Загружаю архив...", () => service.loadArchive());
     } else if (action === "retry") {
       void runAction("Проверяю ещё раз...", () => service.retry());
     } else if (action === "reset") {

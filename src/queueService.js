@@ -90,6 +90,49 @@ function rememberFetch(state, requestedLastId, batch, now) {
   };
 }
 
+function rememberForwardFetch(state, batch, now) {
+  const fetched = normalizeFetchedBatch(batch);
+  const nextLastId = state.lastId === null ? fetched.lastId : state.lastId;
+  const nextState = appendQueueEvent(
+    state,
+    "fetch",
+    {
+      requestedLastId: null,
+      resultCount: fetched.items.length,
+      nextLastId
+    },
+    now
+  );
+
+  return {
+    state: {
+      ...nextState,
+      lastId: nextLastId
+    },
+    items: fetched.items
+  };
+}
+
+function showForwardItems(state, items, now) {
+  if (items.length === 0) {
+    return appendQueueEvent(
+      { ...state, current: null, backlog: [], exhausted: false },
+      "caught-up",
+      { reason: "no-newer-items" },
+      now
+    );
+  }
+
+  const [current, ...backlog] = items;
+
+  return appendQueueEvent(
+    { ...state, current, backlog, exhausted: false },
+    "shown",
+    { id: current.id },
+    now
+  );
+}
+
 function dedupeItems(items, state) {
   const blockedIds = new Set(state.seenIds);
 
@@ -220,20 +263,16 @@ export function createQueueService({
     return save(state);
   }
 
-  async function fetchUsableItems(state, { startFromFirstPage = false } = {}) {
+  async function fetchUsableItems(state) {
     let nextState = state;
-    let requestFirstPage = startFromFirstPage;
 
     for (let attempt = 0; attempt < MAX_FETCH_PAGES_PER_ACTION; attempt += 1) {
-      if (!requestFirstPage && nextState.lastId === null) {
+      if (nextState.lastId === null) {
         break;
       }
 
-      const requestedLastId = requestFirstPage ? null : nextState.lastId;
-      const fetched = await fetchNews(
-        requestFirstPage ? {} : { lastId: requestedLastId }
-      );
-      requestFirstPage = false;
+      const requestedLastId = nextState.lastId;
+      const fetched = await fetchNews({ lastId: requestedLastId });
       const remembered = rememberFetch(nextState, requestedLastId, fetched, now);
       nextState = remembered.state;
 
@@ -246,10 +285,6 @@ export function createQueueService({
       if (items.length > 0) {
         return { state: nextState, items };
       }
-
-      if (nextState.lastId === null) {
-        break;
-      }
     }
 
     return { state: nextState, items: [] };
@@ -259,8 +294,11 @@ export function createQueueService({
     return fetchUsableItems(state);
   }
 
-  function fetchFirstPageItems(state) {
-    return fetchUsableItems(state, { startFromFirstPage: true });
+  async function fetchNewerItems(state) {
+    const fetched = await fetchNews({});
+    const remembered = rememberForwardFetch(state, fetched, now);
+    const items = dedupeItems(remembered.items, remembered.state);
+    return { state: remembered.state, items };
   }
 
   async function advance(actionType) {
@@ -291,8 +329,8 @@ export function createQueueService({
     };
 
     try {
-      const fetched = await fetchNextUsableItems(nextState);
-      nextState = showItems(fetched.state, fetched.items, now);
+      const fetched = await fetchNewerItems(nextState);
+      nextState = showForwardItems(fetched.state, fetched.items, now);
     } catch (error) {
       return saveError(originalState, actionType, error);
     }
@@ -300,7 +338,7 @@ export function createQueueService({
     return resultFor(await save(nextState));
   }
 
-  async function resume(state, actionType) {
+  async function resumeForward(state, actionType) {
     if (state.current) {
       return resultFor(state);
     }
@@ -311,11 +349,8 @@ export function createQueueService({
     }
 
     try {
-      const fetched =
-        state.lastId === null
-          ? await fetchFirstPageItems(state)
-          : await fetchNextUsableItems(state);
-      const nextState = showItems(fetched.state, fetched.items, now);
+      const fetched = await fetchNewerItems(state);
+      const nextState = showForwardItems(fetched.state, fetched.items, now);
       return resultFor(await save(nextState));
     } catch (error) {
       return saveError(state, actionType, error);
@@ -391,8 +426,8 @@ export function createQueueService({
         await save(openedState);
 
         try {
-          const fetched = await fetchNextUsableItems(openedState);
-          const nextState = showItems(fetched.state, fetched.items, now);
+          const fetched = await fetchNewerItems(openedState);
+          const nextState = showForwardItems(fetched.state, fetched.items, now);
           return resultFor(await save(nextState));
         } catch (error) {
           return saveError(openedState, "opened", error);
@@ -403,7 +438,7 @@ export function createQueueService({
     async retry() {
       return withQueueMutationLock(async () => {
         const state = await store.getState();
-        return resume(state, "retry");
+        return resumeForward(state, "retry");
       });
     },
 
@@ -415,6 +450,28 @@ export function createQueueService({
           return resultFor(await createStateFromFirstBatch("reset"));
         } catch (error) {
           return saveError(state, "reset", error);
+        }
+      });
+    },
+
+    async loadArchive() {
+      return withQueueMutationLock(async () => {
+        const state = await store.getState();
+
+        if (state.current) {
+          return resultFor(state);
+        }
+
+        if (state.backlog.length > 0) {
+          return resultFor(await save(showNextBacklogItem(state, now)));
+        }
+
+        try {
+          const fetched = await fetchNextUsableItems(state);
+          const nextState = showItems(fetched.state, fetched.items, now);
+          return resultFor(await save(nextState));
+        } catch (error) {
+          return saveError(state, "archive", error);
         }
       });
     }

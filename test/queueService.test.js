@@ -173,7 +173,7 @@ describe("queueService", () => {
     ]);
   });
 
-  it("markViewed fetches the next page only when backlog is empty", async () => {
+  it("markViewed fetches newer items (forward) when backlog is empty", async () => {
     const { api, service, store } = await createHarness({
       initialState: stateWith({
         current: item(1),
@@ -185,16 +185,16 @@ describe("queueService", () => {
     await service.markViewed();
     const stored = await store.getState();
 
-    assert.deepEqual(api.calls, [{ lastId: 100 }]);
+    assert.deepEqual(api.calls, [{}]);
     assert.equal(stored.current.id, 4);
     assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [5]);
     assert.deepEqual(stored.seenIds, [1]);
-    assert.equal(stored.lastId, 500);
+    assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
   });
 
   it("markViewed logs dismissal before pagination fetch and showing", async () => {
-    const { service, store } = await createHarness({
+    const { api, service, store } = await createHarness({
       initialState: stateWith({
         current: item(1),
         lastId: 100
@@ -205,6 +205,7 @@ describe("queueService", () => {
     await service.markViewed();
     const stored = await store.getState();
 
+    assert.deepEqual(api.calls, [{}]);
     assert.deepEqual(stored.events.map((event) => event.type), [
       "dismissed",
       "fetch",
@@ -212,117 +213,33 @@ describe("queueService", () => {
     ]);
   });
 
-  it("markViewed exhausts without fetching when no pagination cursor remains", async () => {
+  it("markViewed reaches the fork (not exhausted) when no newer items exist", async () => {
     const { api, service, store } = await createHarness({
       initialState: stateWith({
         current: item(1),
-        lastId: null
-      }),
-      batches: [{ items: [item(2)], lastId: 200 }]
-    });
-
-    const result = await service.markViewed();
-    const stored = await store.getState();
-
-    assert.equal(result.status, "empty");
-    assert.deepEqual(api.calls, []);
-    assert.equal(stored.current, null);
-    assert.deepEqual(stored.seenIds, [1]);
-    assert.equal(stored.lastId, null);
-    assert.equal(stored.exhausted, true);
-    assert.deepEqual(stored.events.map((event) => event.type), [
-      "dismissed",
-      "empty"
-    ]);
-  });
-
-  it("continues bounded pagination when a fetched page contains only duplicates", async () => {
-    const { api, service, store } = await createHarness({
-      initialState: stateWith({
-        current: item(1),
-        seenIds: [2, 3],
         lastId: 100
       }),
-      batches: [
-        { items: [item(1), item(2)], lastId: 200 },
-        { items: [item(3), item(4), item(5)], lastId: 500 }
-      ]
+      batches: [{ items: [item(1)], lastId: 900 }]
     });
 
     const result = await service.markViewed();
     const stored = await store.getState();
 
-    assert.equal(result.status, "ready");
-    assert.deepEqual(api.calls, [{ lastId: 100 }, { lastId: 200 }]);
-    assert.equal(stored.current.id, 4);
-    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [5]);
-    assert.deepEqual(stored.seenIds, [2, 3, 1]);
-    assert.equal(stored.lastId, 500);
+    assert.equal(result.status, "idle");
+    assert.deepEqual(api.calls, [{}]);
+    assert.equal(stored.current, null);
+    assert.deepEqual(stored.seenIds, [1]);
+    assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
-  });
-
-  it("stops pagination after one empty API page even when it has a cursor", async () => {
-    const { api, service, store } = await createHarness({
-      initialState: stateWith({
-        current: item(1),
-        lastId: 100
-      }),
-      batches: [
-        { items: [], lastId: 200 },
-        { items: [item(2)], lastId: 300 }
-      ]
-    });
-
-    const result = await service.markViewed();
-    const stored = await store.getState();
-
-    assert.equal(result.status, "empty");
-    assert.deepEqual(api.calls, [{ lastId: 100 }]);
-    assert.equal(stored.current, null);
-    assert.deepEqual(stored.seenIds, [1]);
-    assert.equal(stored.lastId, 200);
-    assert.equal(stored.exhausted, true);
     assert.deepEqual(stored.events.map((event) => event.type), [
       "dismissed",
       "fetch",
-      "empty"
+      "caught-up"
     ]);
   });
 
-  it("exhausts after the bounded pagination limit returns only duplicates", async () => {
+  it("markViewed catches up on newer items and preserves the archive cursor", async () => {
     const { api, service, store } = await createHarness({
-      initialState: stateWith({
-        current: item(1),
-        seenIds: [2, 3, 4, 5, 6],
-        lastId: 100
-      }),
-      batches: [
-        { items: [item(1), item(2)], lastId: 200 },
-        { items: [item(3), item(4)], lastId: 300 },
-        { items: [item(5), item(6)], lastId: 400 },
-        { items: [item(7)], lastId: 700 }
-      ]
-    });
-
-    const result = await service.markViewed();
-    const stored = await store.getState();
-
-    assert.equal(result.status, "empty");
-    assert.deepEqual(api.calls, [
-      { lastId: 100 },
-      { lastId: 200 },
-      { lastId: 300 }
-    ]);
-    assert.equal(stored.current, null);
-    assert.deepEqual(stored.backlog, []);
-    assert.deepEqual(stored.seenIds, [2, 3, 4, 5, 6, 1]);
-    assert.equal(stored.lastId, 400);
-    assert.equal(stored.exhausted, true);
-    assert.equal(stored.events.at(-1).type, "empty");
-  });
-
-  it("deduplicates already seen, current, and repeated fetched IDs", async () => {
-    const { service, store } = await createHarness({
       initialState: stateWith({
         current: item(1),
         seenIds: [7],
@@ -339,10 +256,12 @@ describe("queueService", () => {
     await service.markViewed();
     const stored = await store.getState();
 
+    assert.deepEqual(api.calls, [{}]);
     assert.equal(stored.current.id, 8);
     assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [9]);
     assert.deepEqual(stored.seenIds, [7, 1]);
-    assert.equal(stored.lastId, 900);
+    assert.equal(stored.lastId, 100);
+    assert.equal(stored.exhausted, false);
   });
 
   it("retry shows the next backlog item without fetching when current is empty", async () => {
@@ -370,29 +289,29 @@ describe("queueService", () => {
     assert.deepEqual(stored.events.map((event) => event.type), ["shown"]);
   });
 
-  it("sets exhausted when the API returns no usable new items and no backlog remains", async () => {
+  it("reaches the fork when the forward page has no usable new items", async () => {
     const { service, store } = await createHarness({
       initialState: stateWith({
         current: item(1),
         seenIds: [2, 3],
         lastId: 100
       }),
-      batches: [{ items: [item(1), item(2), item(3)], lastId: null }]
+      batches: [{ items: [item(1), item(2), item(3)], lastId: 400 }]
     });
 
     const result = await service.markViewed();
     const stored = await store.getState();
 
-    assert.equal(result.status, "empty");
+    assert.equal(result.status, "idle");
     assert.equal(stored.current, null);
     assert.deepEqual(stored.backlog, []);
     assert.deepEqual(stored.seenIds, [2, 3, 1]);
-    assert.equal(stored.lastId, null);
-    assert.equal(stored.exhausted, true);
-    assert.equal(stored.events.at(-1).type, "empty");
+    assert.equal(stored.lastId, 100);
+    assert.equal(stored.exhausted, false);
+    assert.equal(stored.events.at(-1).type, "caught-up");
   });
 
-  it("retry fetches again from exhausted empty state", async () => {
+  it("retry checks newer items and preserves the archive cursor", async () => {
     const { api, service, store } = await createHarness({
       initialState: stateWith({
         current: null,
@@ -407,11 +326,11 @@ describe("queueService", () => {
     const stored = await store.getState();
 
     assert.equal(result.status, "ready");
-    assert.deepEqual(api.calls, [{ lastId: 100 }]);
+    assert.deepEqual(api.calls, [{}]);
     assert.equal(stored.current.id, 2);
     assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [3]);
     assert.deepEqual(stored.seenIds, [1]);
-    assert.equal(stored.lastId, 300);
+    assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
   });
 
@@ -482,7 +401,7 @@ describe("queueService", () => {
     ]);
   });
 
-  it("cursorless retry continues from a duplicate-only first page to unseen items", async () => {
+  it("cursorless retry stops at the first page (no forward pagination)", async () => {
     const { api, service, store } = await createHarness({
       initialState: stateWith({
         seenIds: [1, 2],
@@ -496,72 +415,22 @@ describe("queueService", () => {
           }
         ]
       }),
-      batches: [
-        { items: [item(1), item(2)], lastId: 100 },
-        { items: [item(2), item(3)], lastId: 200 }
-      ]
+      batches: [{ items: [item(1), item(2)], lastId: 100 }]
     });
 
     const result = await service.retry();
     const stored = await store.getState();
 
-    assert.equal(result.status, "ready");
-    assert.deepEqual(api.calls, [{}, { lastId: 100 }]);
-    assert.equal(stored.current.id, 3);
-    assert.deepEqual(stored.backlog, []);
+    assert.equal(result.status, "idle");
+    assert.deepEqual(api.calls, [{}]);
+    assert.equal(stored.current, null);
     assert.deepEqual(stored.seenIds, [1, 2]);
-    assert.equal(stored.lastId, 200);
+    assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
     assert.deepEqual(stored.events.map((event) => event.type), [
       "empty",
       "fetch",
-      "fetch",
-      "shown"
-    ]);
-  });
-
-  it("cursorless retry exhausts after three total duplicate-only pages", async () => {
-    const { api, service, store } = await createHarness({
-      initialState: stateWith({
-        seenIds: [1, 2, 3, 4, 5, 6],
-        lastId: null,
-        exhausted: true,
-        events: [
-          {
-            type: "empty",
-            at: "2026-06-17T09:00:00.000Z",
-            details: { reason: "no-usable-items" }
-          }
-        ]
-      }),
-      batches: [
-        { items: [item(1), item(2)], lastId: 100 },
-        { items: [item(3), item(4)], lastId: 200 },
-        { items: [item(5), item(6)], lastId: 300 },
-        { items: [item(7)], lastId: 400 }
-      ]
-    });
-
-    const result = await service.retry();
-    const stored = await store.getState();
-
-    assert.equal(result.status, "empty");
-    assert.deepEqual(api.calls, [
-      {},
-      { lastId: 100 },
-      { lastId: 200 }
-    ]);
-    assert.equal(stored.current, null);
-    assert.deepEqual(stored.backlog, []);
-    assert.deepEqual(stored.seenIds, [1, 2, 3, 4, 5, 6]);
-    assert.equal(stored.lastId, 300);
-    assert.equal(stored.exhausted, true);
-    assert.deepEqual(stored.events.map((event) => event.type), [
-      "empty",
-      "fetch",
-      "fetch",
-      "fetch",
-      "empty"
+      "caught-up"
     ]);
   });
 
@@ -718,7 +587,7 @@ describe("queueService", () => {
 
     assert.equal(openResult.status, "error");
     assert.equal(initializeResult.status, "idle");
-    assert.deepEqual(api.calls, [{ lastId: 100 }]);
+    assert.deepEqual(api.calls, [{}]);
     assert.equal(stored.current, null);
     assert.deepEqual(stored.backlog, []);
     assert.deepEqual(stored.seenIds, [1]);
@@ -735,10 +604,10 @@ describe("queueService", () => {
     const retriedState = await store.getState();
 
     assert.equal(retryResult.status, "ready");
-    assert.deepEqual(api.calls, [{ lastId: 100 }, { lastId: 100 }]);
+    assert.deepEqual(api.calls, [{}, {}]);
     assert.equal(retriedState.current.id, 2);
     assert.deepEqual(retriedState.seenIds, [1]);
-    assert.equal(retriedState.lastId, 200);
+    assert.equal(retriedState.lastId, 100);
   });
 
   it("serializes simultaneous mutations from services sharing one store", async () => {
@@ -920,5 +789,94 @@ describe("queueService", () => {
     assert.deepEqual(stored.seenIds, []);
     assert.equal(stored.lastId, 100);
     assert.equal(stored.events.at(-1).type, "error");
+  });
+
+  it("loadArchive fetches one older batch from the fork and advances lastId", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({
+        current: null,
+        seenIds: [1, 2, 3],
+        lastId: 100
+      }),
+      batches: [
+        { items: [item(1), item(2)], lastId: 200 },
+        { items: [item(3), item(4), item(5)], lastId: 500 }
+      ]
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.deepEqual(api.calls, [{ lastId: 100 }, { lastId: 200 }]);
+    assert.equal(stored.current.id, 4);
+    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [5]);
+    assert.equal(stored.lastId, 500);
+    assert.equal(stored.exhausted, false);
+  });
+
+  it("loadArchive exhausts on an empty older page", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({ current: null, lastId: 100 }),
+      batches: [
+        { items: [], lastId: 200 },
+        { items: [item(2)], lastId: 300 }
+      ]
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "empty");
+    assert.deepEqual(api.calls, [{ lastId: 100 }]);
+    assert.equal(stored.current, null);
+    assert.equal(stored.lastId, 200);
+    assert.equal(stored.exhausted, true);
+    assert.equal(stored.events.at(-1).type, "empty");
+  });
+
+  it("loadArchive exhausts after three duplicate-only older pages", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({
+        current: null,
+        seenIds: [1, 2, 3, 4, 5, 6],
+        lastId: 100
+      }),
+      batches: [
+        { items: [item(1), item(2)], lastId: 200 },
+        { items: [item(3), item(4)], lastId: 300 },
+        { items: [item(5), item(6)], lastId: 400 },
+        { items: [item(7)], lastId: 700 }
+      ]
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "empty");
+    assert.deepEqual(api.calls, [
+      { lastId: 100 },
+      { lastId: 200 },
+      { lastId: 300 }
+    ]);
+    assert.equal(stored.lastId, 400);
+    assert.equal(stored.exhausted, true);
+  });
+
+  it("loadArchive shows the next backlog item without fetching", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({
+        current: null,
+        backlog: [item(8), item(9)],
+        lastId: 100
+      })
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.deepEqual(api.calls, []);
+    assert.equal(stored.current.id, 8);
   });
 });
