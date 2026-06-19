@@ -467,6 +467,28 @@ export function createQueueService({
           return saveError(state, "reset", error);
         }
       });
+    },
+
+    async loadArchive() {
+      return withQueueMutationLock(async () => {
+        const state = await store.getState();
+
+        if (state.current) {
+          return resultFor(state);
+        }
+
+        if (state.backlog.length > 0) {
+          return resultFor(await save(showNextBacklogItem(state, now)));
+        }
+
+        try {
+          const fetched = await fetchNextUsableItems(state);
+          const nextState = showItems(fetched.state, fetched.items, now);
+          return resultFor(await save(nextState));
+        } catch (error) {
+          return saveError(state, "archive", error);
+        }
+      });
     }
   };
 }

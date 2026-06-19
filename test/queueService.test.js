@@ -840,4 +840,93 @@ describe("queueService", () => {
     assert.equal(stored.lastId, 100);
     assert.equal(stored.events.at(-1).type, "error");
   });
+
+  it("loadArchive fetches one older batch from the fork and advances lastId", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({
+        current: null,
+        seenIds: [1, 2, 3],
+        lastId: 100
+      }),
+      batches: [
+        { items: [item(1), item(2)], lastId: 200 },
+        { items: [item(3), item(4), item(5)], lastId: 500 }
+      ]
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.deepEqual(api.calls, [{ lastId: 100 }, { lastId: 200 }]);
+    assert.equal(stored.current.id, 4);
+    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [5]);
+    assert.equal(stored.lastId, 500);
+    assert.equal(stored.exhausted, false);
+  });
+
+  it("loadArchive exhausts on an empty older page", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({ current: null, lastId: 100 }),
+      batches: [
+        { items: [], lastId: 200 },
+        { items: [item(2)], lastId: 300 }
+      ]
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "empty");
+    assert.deepEqual(api.calls, [{ lastId: 100 }]);
+    assert.equal(stored.current, null);
+    assert.equal(stored.lastId, 200);
+    assert.equal(stored.exhausted, true);
+    assert.equal(stored.events.at(-1).type, "empty");
+  });
+
+  it("loadArchive exhausts after three duplicate-only older pages", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({
+        current: null,
+        seenIds: [1, 2, 3, 4, 5, 6],
+        lastId: 100
+      }),
+      batches: [
+        { items: [item(1), item(2)], lastId: 200 },
+        { items: [item(3), item(4)], lastId: 300 },
+        { items: [item(5), item(6)], lastId: 400 },
+        { items: [item(7)], lastId: 700 }
+      ]
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "empty");
+    assert.deepEqual(api.calls, [
+      { lastId: 100 },
+      { lastId: 200 },
+      { lastId: 300 }
+    ]);
+    assert.equal(stored.lastId, 400);
+    assert.equal(stored.exhausted, true);
+  });
+
+  it("loadArchive shows the next backlog item without fetching", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({
+        current: null,
+        backlog: [item(8), item(9)],
+        lastId: 100
+      })
+    });
+
+    const result = await service.loadArchive();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.deepEqual(api.calls, []);
+    assert.equal(stored.current.id, 8);
+  });
 });
