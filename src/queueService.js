@@ -1,6 +1,6 @@
 import { fetchNews as defaultFetchNews } from "./dtfApi.js";
 import { isSafeDtfUrl } from "./dtfUrl.js";
-import { appendEvent, createInitialState } from "./queueStore.js";
+import { appendEvent, capSeenIds, createInitialState } from "./queueStore.js";
 
 const MAX_FETCH_PAGES_PER_ACTION = 3;
 const QUEUE_MUTATION_LOCK_NAME = "dtf-newtab-queue-extension:mutation";
@@ -165,7 +165,7 @@ function addSeenId(state, id) {
 
   return {
     ...state,
-    seenIds: [...state.seenIds, id]
+    seenIds: capSeenIds([...state.seenIds, id])
   };
 }
 

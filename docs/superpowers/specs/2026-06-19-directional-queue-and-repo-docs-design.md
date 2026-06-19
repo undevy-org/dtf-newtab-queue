@@ -33,8 +33,12 @@ documentation the repository currently lacks.
   "Проверить новые" fetches only the first page; middle items in a large gap are
   not recovered. Documented as a known limitation.
 - A persistent "archive mode". Each archive step is a single explicit press.
-- Capping the unbounded `seenIds` array. It interacts with forward dedup (capping
-  could resurface old dismissed items) and is tracked as a separate follow-up.
+- ~~Capping the unbounded `seenIds` array. It interacts with forward dedup (capping
+  could resurface old dismissed items) and is tracked as a separate follow-up.~~
+  Done (2026-06-19): `seenIds` is bounded to the 500 newest (highest) ids via
+  `MAX_SEEN_IDS` / `capSeenIds` in `src/queueStore.js`. Keeping the top-N by id
+  value (not insertion order) avoids resurfacing newest items at the top, since a
+  forward fetch returns the highest ids; deepest-archive ids are dropped safely.
 - A separate `firstSeenId` top cursor. Forward dedup via `seenIds` is sufficient.
 
 ## Part 1 — Directional Queue (feature)

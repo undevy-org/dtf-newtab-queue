@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DTF Queue New Tab",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shows a manual one-card queue of DTF news on the new tab page.",
   "permissions": ["storage"],
   "host_permissions": ["https://api.dtf.ru/*"],

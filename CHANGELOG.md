@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-19
+
 ### Added
 
 - This changelog.
@@ -20,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of crawling endlessly backward; the feed can now reach a real end.
 - `Проверить новые` re-checks the newest page; forward checks no longer move the
   archive cursor.
+- `seenIds` is now bounded to the 500 newest article ids (`MAX_SEEN_IDS`) instead
+  of growing without limit. The cap keeps the highest (newest) ids — those a
+  forward check dedups against — and drops the deepest-archive ids; legacy
+  oversized states are trimmed on read rather than discarded.
 
 ## [0.1.0] - 2026-06-18
 

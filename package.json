@@ -1,6 +1,6 @@
 {
   "name": "dtf-newtab-queue-extension",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Manifest V3 new-tab extension that shows a manual one-card queue of DTF news, with forward catch-up and explicit archive paging.",

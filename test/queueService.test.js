@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  MAX_SEEN_IDS,
   createInitialState,
   createMemoryStorageArea,
   createQueueStore
@@ -789,6 +790,27 @@ describe("queueService", () => {
     assert.deepEqual(stored.seenIds, []);
     assert.equal(stored.lastId, 100);
     assert.equal(stored.events.at(-1).type, "error");
+  });
+
+  it("caps seenIds to the newest ids when advancing past the bound", async () => {
+    const seenIds = Array.from({ length: MAX_SEEN_IDS }, (_, index) => index + 1);
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1000),
+        backlog: [item(1001)],
+        seenIds,
+        lastId: 100
+      })
+    });
+
+    const result = await service.markViewed();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.equal(stored.current.id, 1001);
+    assert.equal(stored.seenIds.length, MAX_SEEN_IDS);
+    assert.equal(stored.seenIds.includes(1000), true);
+    assert.equal(stored.seenIds.includes(1), false);
   });
 
   it("loadArchive fetches one older batch from the fork and advances lastId", async () => {

@@ -3,6 +3,31 @@ import { isSafeDtfUrl } from "./dtfUrl.js";
 export const STORAGE_KEY = "dtfQueueState";
 export const MAX_EVENTS = 500;
 
+// Upper bound for `seenIds`, the set of already-surfaced article ids the forward
+// "Проверить новые" catch-up dedups against. Without a cap it grows forever (one
+// id per viewed/opened item), leaking into chrome.storage.local and slowing the
+// O(n) dedup in queueService. 500 mirrors MAX_EVENTS and dwarfs a single DTF
+// forward page, so the newest page's ids are never at risk of eviction.
+export const MAX_SEEN_IDS = 500;
+
+// Bound `seenIds` to the newest ids. DTF ids increase monotonically with publish
+// time (the same assumption the backward `lastId` cursor relies on), so the
+// highest ids are the newest articles — exactly what a forward fetch (first page)
+// returns and must dedup against. Keeping the top-N by *value* (not by insertion
+// order) means a recently dismissed newest item never gets evicted by a later
+// burst of deep-archive dismissals, which a naive keep-last cap would resurface.
+//
+// Tradeoff: the lowest (deepest-archive) ids are dropped. That is safe because
+// the backward `lastId` cursor only advances deeper within a session, so passed
+// archive pages are never re-fetched, and `reset` clears `seenIds` entirely.
+export function capSeenIds(seenIds) {
+  if (!Array.isArray(seenIds) || seenIds.length <= MAX_SEEN_IDS) {
+    return seenIds;
+  }
+
+  return [...seenIds].sort((a, b) => a - b).slice(-MAX_SEEN_IDS);
+}
+
 export function createInitialState(initializedAt = new Date().toISOString()) {
   return {
     current: null,
@@ -98,6 +123,7 @@ export function isQueueState(value) {
     Array.isArray(value.backlog) &&
     value.backlog.every(isQueueItem) &&
     Array.isArray(value.seenIds) &&
+    value.seenIds.length <= MAX_SEEN_IDS &&
     value.seenIds.every(
       (seenId) => typeof seenId === "number" && Number.isFinite(seenId)
     ) &&
@@ -125,7 +151,13 @@ export function createQueueStore(
       }
 
       const state = result[STORAGE_KEY];
-      return isQueueState(state) ? state : createInitialState(now());
+      // Migrate legacy states whose `seenIds` predates the cap: trim rather than
+      // discard the whole state (which would lose the archive cursor and history).
+      const repaired =
+        isRecord(state) && Array.isArray(state.seenIds)
+          ? { ...state, seenIds: capSeenIds(state.seenIds) }
+          : state;
+      return isQueueState(repaired) ? repaired : createInitialState(now());
     },
 
     async setState(state) {

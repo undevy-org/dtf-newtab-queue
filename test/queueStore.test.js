@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   MAX_EVENTS,
+  MAX_SEEN_IDS,
   STORAGE_KEY,
   appendEvent,
+  capSeenIds,
   createInitialState,
   createMemoryStorageArea,
   createQueueStore,
@@ -72,6 +74,69 @@ describe("queueStore", () => {
     assert.equal(state.events[0].details.index, 5);
     assert.equal(state.events.at(-1).details.index, 504);
     assert.equal(state.updatedAt, "2026-06-17T10:00:504.000Z");
+  });
+
+  it("caps seenIds to the newest ids, dropping the lowest", () => {
+    const seenIds = Array.from({ length: MAX_SEEN_IDS + 5 }, (_, i) => i + 1);
+
+    const capped = capSeenIds(seenIds);
+
+    assert.equal(capped.length, MAX_SEEN_IDS);
+    assert.equal(capped.at(-1), MAX_SEEN_IDS + 5);
+    assert.equal(capped[0], 6);
+    assert.equal(capped.includes(1), false);
+  });
+
+  it("leaves seenIds within the cap unchanged and unsorted", () => {
+    const seenIds = [50, 10, 30];
+
+    const capped = capSeenIds(seenIds);
+
+    assert.equal(capped, seenIds);
+    assert.deepEqual(capped, [50, 10, 30]);
+  });
+
+  it("keeps the highest ids regardless of insertion order", () => {
+    // Archive diving appends OLD ids after the newest one was dismissed first.
+    // The newest id must survive the cap even though it was inserted earliest.
+    const seenIds = [
+      9999,
+      ...Array.from({ length: MAX_SEEN_IDS }, (_, i) => i + 1)
+    ];
+
+    const capped = capSeenIds(seenIds);
+
+    assert.equal(capped.length, MAX_SEEN_IDS);
+    assert.equal(capped.includes(9999), true);
+    assert.equal(capped.includes(1), false);
+  });
+
+  it("rejects seenIds longer than the cap", () => {
+    const state = {
+      ...createInitialState("2026-06-17T10:00:00.000Z"),
+      seenIds: Array.from({ length: MAX_SEEN_IDS + 1 }, (_, i) => i + 1)
+    };
+
+    assert.equal(isQueueState(state), false);
+  });
+
+  it("repairs oversized seenIds on read instead of discarding state", async () => {
+    const oversized = {
+      ...createInitialState("2026-06-17T10:00:00.000Z"),
+      seenIds: Array.from({ length: MAX_SEEN_IDS + 50 }, (_, i) => i + 1),
+      lastId: 100
+    };
+    const storageArea = createMemoryStorageArea({ [STORAGE_KEY]: oversized });
+    const store = createQueueStore(storageArea, {
+      now: () => "2026-06-17T10:00:03.000Z"
+    });
+
+    const loaded = await store.getState();
+
+    assert.equal(loaded.seenIds.length, MAX_SEEN_IDS);
+    assert.equal(loaded.lastId, 100);
+    assert.equal(loaded.seenIds.includes(MAX_SEEN_IDS + 50), true);
+    assert.equal(loaded.seenIds.includes(1), false);
   });
 
   it("persists, reads, and clears state", async () => {
