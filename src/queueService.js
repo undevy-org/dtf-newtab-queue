@@ -263,20 +263,16 @@ export function createQueueService({
     return save(state);
   }
 
-  async function fetchUsableItems(state, { startFromFirstPage = false } = {}) {
+  async function fetchUsableItems(state) {
     let nextState = state;
-    let requestFirstPage = startFromFirstPage;
 
     for (let attempt = 0; attempt < MAX_FETCH_PAGES_PER_ACTION; attempt += 1) {
-      if (!requestFirstPage && nextState.lastId === null) {
+      if (nextState.lastId === null) {
         break;
       }
 
-      const requestedLastId = requestFirstPage ? null : nextState.lastId;
-      const fetched = await fetchNews(
-        requestFirstPage ? {} : { lastId: requestedLastId }
-      );
-      requestFirstPage = false;
+      const requestedLastId = nextState.lastId;
+      const fetched = await fetchNews({ lastId: requestedLastId });
       const remembered = rememberFetch(nextState, requestedLastId, fetched, now);
       nextState = remembered.state;
 
@@ -300,10 +296,6 @@ export function createQueueService({
 
   function fetchNextUsableItems(state) {
     return fetchUsableItems(state);
-  }
-
-  function fetchFirstPageItems(state) {
-    return fetchUsableItems(state, { startFromFirstPage: true });
   }
 
   async function fetchNewerItems(state) {
@@ -350,7 +342,7 @@ export function createQueueService({
     return resultFor(await save(nextState));
   }
 
-  async function resume(state, actionType) {
+  async function resumeForward(state, actionType) {
     if (state.current) {
       return resultFor(state);
     }
@@ -361,11 +353,8 @@ export function createQueueService({
     }
 
     try {
-      const fetched =
-        state.lastId === null
-          ? await fetchFirstPageItems(state)
-          : await fetchNextUsableItems(state);
-      const nextState = showItems(fetched.state, fetched.items, now);
+      const fetched = await fetchNewerItems(state);
+      const nextState = showForwardItems(fetched.state, fetched.items, now);
       return resultFor(await save(nextState));
     } catch (error) {
       return saveError(state, actionType, error);
@@ -453,7 +442,7 @@ export function createQueueService({
     async retry() {
       return withQueueMutationLock(async () => {
         const state = await store.getState();
-        return resume(state, "retry");
+        return resumeForward(state, "retry");
       });
     },
 
