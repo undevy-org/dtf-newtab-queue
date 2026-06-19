@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - This changelog.
+- `Глубже в архив` action: explicit, one-batch-per-press paging into older news.
+- LICENSE (MIT), `CONTRIBUTING.md`, `SECURITY.md`, and `package.json` repository
+  metadata.
+
+### Changed
+
+- When the backlog empties, the queue now catches up on **newer** items (forward)
+  instead of crawling endlessly backward; the feed can now reach a real end.
+- `Проверить новые` re-checks the newest page; forward checks no longer move the
+  archive cursor.
 
 ## [0.1.0] - 2026-06-18
 
