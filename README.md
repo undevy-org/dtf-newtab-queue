@@ -35,7 +35,7 @@ The extension reads `https://api.dtf.ru/v2.10/news` directly from the new tab pa
 - the remaining items are `backlog`;
 - the API cursor is stored as `lastId`.
 
-No request is made while an existing card is simply displayed. A new request happens only after an explicit action needs another page, or when you press **Проверить ещё раз** or **Сбросить**.
+No request is made while an existing card is simply displayed. A new request happens only when the backlog empties (a forward catch-up), when you press **Проверить новые** or **Глубже в архив**, or when you press **Сбросить**.
 
 When the backlog empties, the extension fetches the **first** page again and shows
 only headlines you have not seen yet — it does not crawl backward by default, so the

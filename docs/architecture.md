@@ -40,14 +40,19 @@ The event log is diagnostic only and is capped at 500 entries.
 3. The first item becomes `current`; the rest become `backlog`.
 4. **Просмотрел** marks the current item as seen and advances.
 5. **Перейти** opens the validated DTF URL, records the item as seen, and advances.
-6. When the backlog is empty, the service requests the next page with `lastId`.
+6. When the backlog is empty, the service fetches the **first** page (forward catch-up)
+   and shows only items the user has not yet seen. This never moves `lastId`, so the
+   archive cursor stays where it was. The queue can reach a real end.
+7. **Глубже в архив** (`loadArchive`) loads one older page per press, advancing
+   `lastId`. If the page is empty or carries no cursor, `exhausted` is set to `true`
+   and the Archive-ended screen is shown.
 
-The service checks at most three non-empty API pages per action when pages contain only duplicates. An empty page or missing cursor ends the search.
+When `loadArchive` pages through duplicates it checks at most three non-empty API pages per press before giving up. An empty page or missing cursor ends the backward search.
 
 ## Error Semantics
 
 - A failed viewed action keeps the current card unchanged.
-- Once an article has opened successfully, that action is irreversible. If pagination then fails, the opened item stays seen and retry resumes from the saved cursor.
+- Once an article has opened successfully, that action is irreversible. If the subsequent forward catch-up then fails, the opened item stays seen and retry performs a fresh forward check (first page) without using `lastId`.
 - A failed reset preserves the previous queue.
 - A retryable state is distinct from an exhausted queue, so the UI does not incorrectly claim that everything was read.
 

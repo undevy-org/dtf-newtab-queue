@@ -285,10 +285,6 @@ export function createQueueService({
       if (items.length > 0) {
         return { state: nextState, items };
       }
-
-      if (nextState.lastId === null) {
-        break;
-      }
     }
 
     return { state: nextState, items: [] };

@@ -133,7 +133,7 @@ function renderCard(state, error = null, busyMessage = "") {
   });
 }
 
-function renderArchiveEnded(state, error = null, busyMessage = "") {
+function renderArchiveEnded(error = null, busyMessage = "") {
   renderShell({
     title: "Вы прочитали всё, включая архив",
     meta: "Новых карточек нет. Можно проверить ещё раз позже.",
@@ -146,7 +146,7 @@ function renderArchiveEnded(state, error = null, busyMessage = "") {
   });
 }
 
-function renderFork(state, error = null, busyMessage = "") {
+function renderFork(error = null, busyMessage = "") {
   renderShell({
     title: "Вы прочитали всё свежее",
     meta: "Проверьте новые сверху или загляните глубже в архив.",
@@ -176,11 +176,11 @@ function renderResult(result) {
   }
 
   if (state.exhausted) {
-    renderArchiveEnded(state, error, busyMessage);
+    renderArchiveEnded(error, busyMessage);
     return;
   }
 
-  renderFork(state, error, busyMessage);
+  renderFork(error, busyMessage);
 }
 
 function setBusy(nextBusy, message = "") {
