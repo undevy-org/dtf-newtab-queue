@@ -3,6 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Manifest V3 new-tab extension that shows a manual one-card queue of DTF news, with forward catch-up and explicit archive paging.",
+  "license": "MIT",
+  "keywords": [
+    "chrome-extension",
+    "manifest-v3",
+    "new-tab",
+    "dtf"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/undevy-org/dtf-newtab-queue.git"
+  },
+  "bugs": {
+    "url": "https://github.com/undevy-org/dtf-newtab-queue/issues"
+  },
+  "homepage": "https://github.com/undevy-org/dtf-newtab-queue#readme",
   "scripts": {
     "test": "node --test test/*.test.js",
     "check": "find src -name '*.js' -print0 | xargs -0 -n1 node --check"
