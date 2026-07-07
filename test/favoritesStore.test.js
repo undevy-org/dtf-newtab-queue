@@ -88,6 +88,21 @@ describe("favoritesStore", () => {
     assert.equal(isFavoritesState(state), false);
   });
 
+  it("rejects invalid favorites state on set", async () => {
+    const storageArea = createMemoryStorageArea();
+    const store = createFavoritesStore(storageArea, { now: () => NOW });
+    const invalidState = {
+      version: 1,
+      items: "bad",
+      createdAt: NOW,
+      updatedAt: NOW
+    };
+
+    await assert.rejects(() => store.setState(invalidState), {
+      message: "Invalid favorites state"
+    });
+  });
+
   it("persists, reads, clears, and clones favorites state", async () => {
     const storageArea = createMemoryStorageArea();
     const store = createFavoritesStore(storageArea, { now: () => NOW });
