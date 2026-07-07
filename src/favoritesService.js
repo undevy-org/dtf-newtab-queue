@@ -19,7 +19,14 @@ function hasUrlScheme(value) {
     return true;
   }
 
-  return !(scheme === "localhost" && /^\d/.test(rest));
+  return !isHostPortWithoutScheme(scheme, rest);
+}
+
+function isHostPortWithoutScheme(host, rest) {
+  return (
+    /^\d+(?:[/?#]|$)/.test(rest) &&
+    (host === "localhost" || host.includes("."))
+  );
 }
 
 function ensureUrlProtocol(input) {
@@ -98,6 +105,14 @@ function normalizeBackgroundColorSource(backgroundColorSource) {
   return backgroundColorSource;
 }
 
+function deriveBackgroundColorSource(input, fallbackSource) {
+  const source =
+    input.backgroundColorSource ??
+    (trimString(input.backgroundColor) ? "manual" : fallbackSource);
+
+  return normalizeBackgroundColorSource(source);
+}
+
 function normalizeBackgroundColor(backgroundColor, domain, defaultBackgroundColor) {
   const color =
     trimString(backgroundColor) || trimString(defaultBackgroundColor(domain));
@@ -121,6 +136,14 @@ function createDefaultId() {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function normalizeMoveDirection(direction) {
+  if (typeof direction !== "number" || !Number.isFinite(direction)) {
+    throw new Error("Move direction must be a finite number");
+  }
+
+  return Math.sign(direction);
 }
 
 export function createFavoritesService({
@@ -151,9 +174,7 @@ export function createFavoritesService({
           normalizedUrl.domain,
           defaultBackgroundColor
         ),
-        backgroundColorSource: normalizeBackgroundColorSource(
-          payload.backgroundColorSource ?? "auto"
-        ),
+        backgroundColorSource: deriveBackgroundColorSource(payload, "auto"),
         createdAt,
         updatedAt: createdAt
       };
@@ -208,6 +229,11 @@ export function createFavoritesService({
         nextItem.backgroundColorSource = normalizeBackgroundColorSource(
           payload.backgroundColorSource
         );
+      } else if (Object.hasOwn(payload, "backgroundColor")) {
+        nextItem.backgroundColorSource = deriveBackgroundColorSource(
+          payload,
+          "auto"
+        );
       }
 
       nextItem.updatedAt = updatedAt;
@@ -244,7 +270,8 @@ export function createFavoritesService({
         throw new Error("Favorite not found");
       }
 
-      const nextIndex = clamp(index + Math.sign(direction), 0, state.items.length - 1);
+      const step = normalizeMoveDirection(direction);
+      const nextIndex = clamp(index + step, 0, state.items.length - 1);
       if (nextIndex === index) {
         return state;
       }

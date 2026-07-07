@@ -39,6 +39,13 @@ describe("favoritesService", () => {
       });
     });
 
+    it("normalizes host-with-port URLs without an explicit protocol", () => {
+      assert.deepEqual(normalizeFavoriteUrl("example.com:8443/path"), {
+        url: "https://example.com:8443/path",
+        domain: "example.com"
+      });
+    });
+
     it("rejects empty URLs", () => {
       assert.throws(() => normalizeFavoriteUrl(""), /Enter a URL/);
     });
@@ -66,6 +73,13 @@ describe("favoritesService", () => {
       assert.equal(
         normalizeNullableImageUrl("cdn.example.com/icon.png"),
         "https://cdn.example.com/icon.png"
+      );
+    });
+
+    it("normalizes host-with-port image URLs without an explicit protocol", () => {
+      assert.equal(
+        normalizeNullableImageUrl("cdn.example.com:8443/icon.png"),
+        "https://cdn.example.com:8443/icon.png"
       );
     });
 
@@ -106,8 +120,20 @@ describe("favoritesService", () => {
     assert.deepEqual(await store.getState(), state);
   });
 
-  it("updates favorite fields", async () => {
+  it("derives manual background color source when adding a custom color", async () => {
     const { service } = await createHarness();
+
+    const state = await service.addFavorite({
+      url: "example.com",
+      backgroundColor: "#112233"
+    });
+
+    assert.equal(state.items[0].backgroundColor, "#112233");
+    assert.equal(state.items[0].backgroundColorSource, "manual");
+  });
+
+  it("updates favorite fields", async () => {
+    const { service, store } = await createHarness();
     await service.addFavorite({ url: "example.com" });
 
     const state = await service.updateFavorite("fav-1", {
@@ -131,6 +157,19 @@ describe("favoritesService", () => {
       createdAt: NOW,
       updatedAt: NOW
     });
+    assert.deepEqual(await store.getState(), state);
+  });
+
+  it("derives manual background color source when updating only color", async () => {
+    const { service } = await createHarness();
+    await service.addFavorite({ url: "example.com" });
+
+    const state = await service.updateFavorite("fav-1", {
+      backgroundColor: "#445566"
+    });
+
+    assert.equal(state.items[0].backgroundColor, "#445566");
+    assert.equal(state.items[0].backgroundColorSource, "manual");
   });
 
   it("preserves a manual background color when color fields are omitted", async () => {
@@ -148,7 +187,7 @@ describe("favoritesService", () => {
   });
 
   it("deletes favorites", async () => {
-    const { service } = await createHarness();
+    const { service, store } = await createHarness();
     await service.addFavorite({ url: "one.example.com" });
     await service.addFavorite({ url: "two.example.com" });
 
@@ -158,10 +197,11 @@ describe("favoritesService", () => {
       state.items.map((item) => item.id),
       ["fav-2"]
     );
+    assert.deepEqual(await store.getState(), state);
   });
 
   it("moves favorites by direction and clamps at boundaries", async () => {
-    const { service } = await createHarness();
+    const { service, store } = await createHarness();
     await service.addFavorite({ url: "one.example.com" });
     await service.addFavorite({ url: "two.example.com" });
     await service.addFavorite({ url: "three.example.com" });
@@ -188,6 +228,22 @@ describe("favoritesService", () => {
     assert.deepEqual(
       state.items.map((item) => item.id),
       ["fav-1", "fav-2", "fav-3"]
+    );
+    assert.deepEqual(await store.getState(), state);
+  });
+
+  it("rejects invalid move directions", async () => {
+    const { service } = await createHarness();
+    await service.addFavorite({ url: "one.example.com" });
+    await service.addFavorite({ url: "two.example.com" });
+
+    await assert.rejects(
+      () => service.moveFavorite("fav-1"),
+      /Move direction must be a finite number/
+    );
+    await assert.rejects(
+      () => service.moveFavorite("fav-1", "left"),
+      /Move direction must be a finite number/
     );
   });
 
