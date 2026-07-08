@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Favorites add/update/delete/move no longer race each other: mutations are
+  now serialized through the same Web Locks-based mutation lock already used
+  by the queue (`src/mutationLock.js`), so two overlapping actions can no
+  longer silently drop each other's write.
+- The favorites bar now locks while any mutation is in flight, so a slow
+  auto-color fetch can no longer be interrupted by navigating to a different
+  item's edit form, an open edit form's unsaved input can no longer be wiped
+  by a sibling action (e.g. reordering another tile), and deleting an item
+  mid-flight no longer surfaces a spurious "Favorite not found" error.
+- Bare `host:port` favorite URLs without a dot in the host (e.g. `router:8080`)
+  are no longer misclassified as having a URL scheme and rejected.
+- Adding a favorite past the 200-item cap now fails with a clear message
+  instead of a generic "Invalid favorites state" error.
+- The favorites bar bootstrap no longer depends on the queue widget's `#app`
+  element being present.
+
+### Changed
+
+- Extracted shared validation/clone helpers (`src/storeUtils.js`) and
+  favorites constants (`src/favoritesShared.js`), removing duplication
+  between `favoritesStore.js`, `favoritesService.js`, `favoriteIcon.js`, and
+  `queueStore.js`.
+
 ## [0.2.0] - 2026-06-19
 
 ### Added
