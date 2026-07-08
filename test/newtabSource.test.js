@@ -21,4 +21,21 @@ describe("newtab favorites source", () => {
       /customIconUrl\.name = "customIconUrl";\s+customIconUrl\.type = "text";\s+customIconUrl\.inputMode = "url";/
     );
   });
+
+  it("bootstraps the favorites bar independently of the queue widget's #app guard", async () => {
+    const source = await readFile(NEWTAB_SOURCE, "utf8");
+
+    assert.match(source, /if \(favoritesRoot\) \{/);
+    assert.match(source, /if \(app\) \{/);
+  });
+
+  it("blocks favorites actions while a request is in flight", async () => {
+    const source = await readFile(NEWTAB_SOURCE, "utf8");
+
+    assert.match(source, /let favoritesBusy = false;/);
+    assert.match(source, /let favoritesGeneration = 0;/);
+    assert.match(source, /if \(favoritesBusy\) \{\s+return;\s+\}/);
+    assert.match(source, /function startFavoritesAction\(\)/);
+    assert.match(source, /function finishFavoritesAction\(generation, applyResult\)/);
+  });
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createFavoritesStore } from "../src/favoritesStore.js";
+import { MAX_FAVORITES, createFavoritesStore } from "../src/favoritesStore.js";
 import { createMemoryStorageArea } from "../src/queueStore.js";
 import {
   createFavoritesService,
@@ -23,6 +23,22 @@ async function createHarness() {
   return { service, store };
 }
 
+function favorite(overrides = {}) {
+  return {
+    id: "fav-1",
+    url: "https://example.com/",
+    label: "Example",
+    domain: "example.com",
+    iconMode: "favicon",
+    customIconUrl: null,
+    backgroundColor: "#24292f",
+    backgroundColorSource: "auto",
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides
+  };
+}
+
 describe("favoritesService", () => {
   describe("normalizeFavoriteUrl", () => {
     it("normalizes URLs without an explicit protocol", () => {
@@ -43,6 +59,17 @@ describe("favoritesService", () => {
       assert.deepEqual(normalizeFavoriteUrl("example.com:8443/path"), {
         url: "https://example.com:8443/path",
         domain: "example.com"
+      });
+    });
+
+    it("normalizes bare host:port URLs without a dot in the host", () => {
+      assert.deepEqual(normalizeFavoriteUrl("router:8080"), {
+        url: "https://router:8080/",
+        domain: "router"
+      });
+      assert.deepEqual(normalizeFavoriteUrl("nas:9000/share"), {
+        url: "https://nas:9000/share",
+        domain: "nas"
       });
     });
 
@@ -80,6 +107,13 @@ describe("favoritesService", () => {
       assert.equal(
         normalizeNullableImageUrl("cdn.example.com:8443/icon.png"),
         "https://cdn.example.com:8443/icon.png"
+      );
+    });
+
+    it("normalizes bare host:port image URLs without a dot in the host", () => {
+      assert.equal(
+        normalizeNullableImageUrl("router:9000/icon.png"),
+        "https://router:9000/icon.png"
       );
     });
 
@@ -264,6 +298,81 @@ describe("favoritesService", () => {
     await assert.rejects(
       () => service.addFavorite({ url: "example.com", backgroundColor: "red" }),
       /Use a hex color/
+    );
+  });
+
+  it("rejects adding a favorite once the limit is reached", async () => {
+    const { service, store } = await createHarness();
+    const items = Array.from({ length: MAX_FAVORITES }, (_, index) =>
+      favorite({
+        id: `fav-seed-${index}`,
+        url: `https://example-${index}.com/`,
+        domain: `example-${index}.com`
+      })
+    );
+    await store.setState({
+      version: 1,
+      items,
+      createdAt: NOW,
+      updatedAt: NOW
+    });
+
+    await assert.rejects(
+      () => service.addFavorite({ url: "https://new.example.com" }),
+      new RegExp(`up to ${MAX_FAVORITES} favorites`)
+    );
+    assert.equal((await store.getState()).items.length, MAX_FAVORITES);
+  });
+
+  it("serializes simultaneous mutations from services sharing one store", async () => {
+    const store = createFavoritesStore(createMemoryStorageArea(), { now: () => NOW });
+    await store.setState({
+      version: 1,
+      items: [
+        favorite({ id: "fav-a", url: "https://a.example.com/", domain: "a.example.com" }),
+        favorite({ id: "fav-b", url: "https://b.example.com/", domain: "b.example.com" }),
+        favorite({ id: "fav-c", url: "https://c.example.com/", domain: "c.example.com" })
+      ],
+      createdAt: NOW,
+      updatedAt: NOW
+    });
+
+    const serviceA = createFavoritesService({
+      store,
+      now: () => NOW,
+      defaultBackgroundColor: () => "#24292f"
+    });
+    const serviceB = createFavoritesService({
+      store,
+      now: () => NOW,
+      defaultBackgroundColor: () => "#24292f"
+    });
+
+    await Promise.all([
+      serviceA.deleteFavorite("fav-a"),
+      serviceB.moveFavorite("fav-c", -1)
+    ]);
+
+    const stored = await store.getState();
+    assert.deepEqual(
+      stored.items.map((item) => item.id),
+      ["fav-c", "fav-b"]
+    );
+  });
+
+  it("keeps the favorites lock available after a rejected mutation", async () => {
+    const { service } = await createHarness();
+    await service.addFavorite({ url: "example.com" });
+
+    await assert.rejects(
+      () => service.moveFavorite("missing", 1),
+      /Favorite not found/
+    );
+
+    const state = await service.moveFavorite("fav-1", 1);
+    assert.deepEqual(
+      state.items.map((item) => item.id),
+      ["fav-1"]
     );
   });
 });

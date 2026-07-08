@@ -293,6 +293,8 @@ let favoritesState = null;
 let favoritesMode = "view";
 let favoritesEditingId = null;
 let favoritesError = "";
+let favoritesBusy = false;
+let favoritesGeneration = 0;
 
 function createFavoriteIconNode(model, item) {
   if (model.type === "image") {
@@ -327,6 +329,9 @@ function createFavoriteTile(item) {
   button.style.setProperty("--favorite-bg", item.backgroundColor);
   button.style.setProperty("--favorite-fg", readableTextColor(item.backgroundColor));
   button.appendChild(createFavoriteIconNode(iconModel, item));
+  const tileDisabled = favoritesBusy || favoritesEditingId !== null;
+  button.disabled = tileDisabled;
+  button.setAttribute("aria-disabled", String(tileDisabled));
   return button;
 }
 
@@ -335,6 +340,9 @@ function createFavoriteAddButton() {
   button.type = "button";
   button.dataset.favoriteAction = "start-add";
   button.setAttribute("aria-label", "Добавить избранную ссылку");
+  const addDisabled = favoritesBusy || favoritesEditingId !== null || favoritesMode === "add";
+  button.disabled = addDisabled;
+  button.setAttribute("aria-disabled", String(addDisabled));
   return button;
 }
 
@@ -344,6 +352,9 @@ function createFavoritesActions() {
   settings.type = "button";
   settings.dataset.favoriteAction = "toggle-edit";
   settings.setAttribute("aria-label", "Настройки избранных ссылок");
+  const settingsDisabled = favoritesBusy || favoritesEditingId !== null || favoritesMode === "add";
+  settings.disabled = settingsDisabled;
+  settings.setAttribute("aria-disabled", String(settingsDisabled));
   actions.appendChild(settings);
   return actions;
 }
@@ -362,10 +373,12 @@ function createAddForm() {
 
   const save = createNode("button", "button button--primary", "Сохранить");
   save.type = "submit";
+  save.disabled = favoritesBusy;
 
   const cancel = createNode("button", "button", "Отмена");
   cancel.type = "button";
   cancel.dataset.favoriteAction = "cancel";
+  cancel.disabled = favoritesBusy;
 
   form.append(input, save, cancel);
   return form;
@@ -431,15 +444,18 @@ function createEditForm(item) {
 
   const save = createNode("button", "button button--primary", "Сохранить");
   save.type = "submit";
+  save.disabled = favoritesBusy;
 
   const cancel = createNode("button", "button", "Отмена");
   cancel.type = "button";
   cancel.dataset.favoriteAction = "cancel";
+  cancel.disabled = favoritesBusy;
 
   const remove = createNode("button", "button button--danger", "Удалить");
   remove.type = "button";
   remove.dataset.favoriteAction = "delete";
   remove.dataset.favoriteId = item.id;
+  remove.disabled = favoritesBusy;
 
   form.append(
     url,
@@ -513,8 +529,9 @@ function renderFavorites() {
       right.dataset.favoriteAction = "move-right";
       left.dataset.favoriteId = item.id;
       right.dataset.favoriteId = item.id;
-      left.disabled = index === 0;
-      right.disabled = index === items.length - 1;
+      const moveDisabled = favoritesBusy || favoritesEditingId !== null || favoritesMode === "add";
+      left.disabled = moveDisabled || index === 0;
+      right.disabled = moveDisabled || index === items.length - 1;
       moveRow.append(left, right);
       wrapper.appendChild(moveRow);
     }
@@ -545,7 +562,29 @@ function renderFavorites() {
   favoritesRoot.replaceChildren(fragment);
 }
 
-if (app) {
+function setFavoritesBusy(nextBusy) {
+  favoritesBusy = nextBusy;
+}
+
+function startFavoritesAction() {
+  favoritesGeneration += 1;
+  setFavoritesBusy(true);
+  renderFavorites();
+  return favoritesGeneration;
+}
+
+function finishFavoritesAction(generation, applyResult) {
+  setFavoritesBusy(false);
+
+  if (generation !== favoritesGeneration) {
+    return;
+  }
+
+  applyResult();
+  renderFavorites();
+}
+
+if (favoritesRoot) {
   void (async () => {
     if (!favoritesService) {
       favoritesError = "Недоступны API Chrome для избранного.";
@@ -562,6 +601,204 @@ if (app) {
     }
   })();
 
+  favoritesRoot.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const target = event.target.closest("[data-favorite-action]");
+
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (favoritesBusy) {
+      return;
+    }
+
+    const action = target.dataset.favoriteAction;
+
+    if (action === "start-add") {
+      favoritesMode = "add";
+      favoritesError = "";
+      renderFavorites();
+    } else if (action === "cancel") {
+      favoritesMode = "view";
+      favoritesEditingId = null;
+      favoritesError = "";
+      renderFavorites();
+    } else if (action === "toggle-edit") {
+      favoritesMode = favoritesMode === "edit" ? "view" : "edit";
+      favoritesEditingId = null;
+      favoritesError = "";
+      renderFavorites();
+    } else if (action === "edit") {
+      favoritesEditingId = target.dataset.favoriteId ?? null;
+      favoritesError = "";
+      renderFavorites();
+    } else if (action === "delete") {
+      const generation = startFavoritesAction();
+
+      void (async () => {
+        if (!favoritesService) {
+          finishFavoritesAction(generation, () => {
+            favoritesError = "Недоступны API Chrome для избранного.";
+          });
+          return;
+        }
+
+        try {
+          const nextState = await favoritesService.deleteFavorite(
+            target.dataset.favoriteId
+          );
+          finishFavoritesAction(generation, () => {
+            favoritesState = nextState;
+            favoritesEditingId = null;
+            favoritesError = "";
+          });
+        } catch (error) {
+          finishFavoritesAction(generation, () => {
+            favoritesError = error instanceof Error ? error.message : String(error);
+          });
+        }
+      })();
+    } else if (action === "move-left" || action === "move-right") {
+      const generation = startFavoritesAction();
+
+      void (async () => {
+        if (!favoritesService) {
+          finishFavoritesAction(generation, () => {
+            favoritesError = "Недоступны API Chrome для избранного.";
+          });
+          return;
+        }
+
+        try {
+          const nextState = await favoritesService.moveFavorite(
+            target.dataset.favoriteId,
+            action === "move-left" ? -1 : 1
+          );
+          finishFavoritesAction(generation, () => {
+            favoritesState = nextState;
+            favoritesError = "";
+          });
+        } catch (error) {
+          finishFavoritesAction(generation, () => {
+            favoritesError = error instanceof Error ? error.message : String(error);
+          });
+        }
+      })();
+    } else if (action === "open") {
+      const favorite = favoritesState?.items.find(
+        (item) => item.id === target.dataset.favoriteId
+      );
+
+      if (favorite) {
+        window.location.assign(favorite.url);
+      }
+    }
+  });
+
+  favoritesRoot.addEventListener("submit", (event) => {
+    const form = event.target;
+
+    if (
+      !(form instanceof HTMLFormElement) ||
+      !["add", "edit"].includes(form.dataset.favoriteForm ?? "")
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (favoritesBusy) {
+      return;
+    }
+
+    const generation = startFavoritesAction();
+
+    void (async () => {
+      if (!favoritesService) {
+        finishFavoritesAction(generation, () => {
+          favoritesError = "Недоступны API Chrome для избранного.";
+        });
+        return;
+      }
+
+      const data = new FormData(form);
+
+      try {
+        if (form.dataset.favoriteForm === "edit") {
+          const backgroundColorSource =
+            data.get("backgroundColorSource") === "manual" ? "manual" : "auto";
+          favoritesState = await favoritesService.updateFavorite(
+            form.dataset.favoriteId,
+            {
+              url: data.get("url"),
+              label: data.get("label"),
+              iconMode: data.get("iconMode"),
+              customIconUrl: data.get("customIconUrl"),
+              backgroundColor: data.get("backgroundColor"),
+              backgroundColorSource
+            }
+          );
+
+          const updatedItem = favoritesState.items.find(
+            (item) => item.id === form.dataset.favoriteId
+          );
+
+          if (backgroundColorSource === "auto" && updatedItem) {
+            const autoColor = await resolveAutoBackgroundColor(updatedItem);
+
+            if (autoColor !== updatedItem.backgroundColor) {
+              favoritesState = await favoritesService.updateFavorite(
+                updatedItem.id,
+                {
+                  backgroundColor: autoColor,
+                  backgroundColorSource: "auto"
+                }
+              );
+            }
+          }
+
+          finishFavoritesAction(generation, () => {
+            favoritesEditingId = null;
+            favoritesError = "";
+          });
+          return;
+        }
+
+        favoritesState = await favoritesService.addFavorite({
+          url: data.get("url"),
+          backgroundColorSource: "auto"
+        });
+        const added = favoritesState.items.at(-1);
+
+        if (added) {
+          const autoColor = await resolveAutoBackgroundColor(added);
+
+          if (autoColor !== added.backgroundColor) {
+            favoritesState = await favoritesService.updateFavorite(added.id, {
+              backgroundColor: autoColor,
+              backgroundColorSource: "auto"
+            });
+          }
+        }
+
+        finishFavoritesAction(generation, () => {
+          favoritesMode = "view";
+          favoritesError = "";
+        });
+      } catch (error) {
+        finishFavoritesAction(generation, () => {
+          favoritesError = error instanceof Error ? error.message : String(error);
+        });
+      }
+    })();
+  });
+}
+
+if (app) {
   setBusy(true, "Подключаюсь к очереди.");
   renderLoading();
 
@@ -606,175 +843,5 @@ if (app) {
     } else if (action === "reset") {
       void runAction("Сбрасываю очередь...", () => service.reset());
     }
-  });
-
-  favoritesRoot?.addEventListener("click", (event) => {
-    if (!(event.target instanceof Element)) {
-      return;
-    }
-
-    const target = event.target.closest("[data-favorite-action]");
-
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    const action = target.dataset.favoriteAction;
-
-    if (action === "start-add") {
-      favoritesMode = "add";
-      favoritesError = "";
-      renderFavorites();
-    } else if (action === "cancel") {
-      favoritesMode = "view";
-      favoritesEditingId = null;
-      favoritesError = "";
-      renderFavorites();
-    } else if (action === "toggle-edit") {
-      favoritesMode = favoritesMode === "edit" ? "view" : "edit";
-      favoritesEditingId = null;
-      favoritesError = "";
-      renderFavorites();
-    } else if (action === "edit") {
-      favoritesEditingId = target.dataset.favoriteId ?? null;
-      favoritesError = "";
-      renderFavorites();
-    } else if (action === "delete") {
-      void (async () => {
-        if (!favoritesService) {
-          favoritesError = "Недоступны API Chrome для избранного.";
-          renderFavorites();
-          return;
-        }
-
-        try {
-          favoritesState = await favoritesService.deleteFavorite(
-            target.dataset.favoriteId
-          );
-          favoritesEditingId = null;
-          favoritesError = "";
-          renderFavorites();
-        } catch (error) {
-          favoritesError = error instanceof Error ? error.message : String(error);
-          renderFavorites();
-        }
-      })();
-    } else if (action === "move-left" || action === "move-right") {
-      void (async () => {
-        if (!favoritesService) {
-          favoritesError = "Недоступны API Chrome для избранного.";
-          renderFavorites();
-          return;
-        }
-
-        try {
-          favoritesState = await favoritesService.moveFavorite(
-            target.dataset.favoriteId,
-            action === "move-left" ? -1 : 1
-          );
-          favoritesError = "";
-          renderFavorites();
-        } catch (error) {
-          favoritesError = error instanceof Error ? error.message : String(error);
-          renderFavorites();
-        }
-      })();
-    } else if (action === "open") {
-      const favorite = favoritesState?.items.find(
-        (item) => item.id === target.dataset.favoriteId
-      );
-
-      if (favorite) {
-        window.location.assign(favorite.url);
-      }
-    }
-  });
-
-  favoritesRoot?.addEventListener("submit", (event) => {
-    const form = event.target;
-
-    if (
-      !(form instanceof HTMLFormElement) ||
-      !["add", "edit"].includes(form.dataset.favoriteForm ?? "")
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-
-    void (async () => {
-      if (!favoritesService) {
-        favoritesError = "Недоступны API Chrome для избранного.";
-        renderFavorites();
-        return;
-      }
-
-      const data = new FormData(form);
-
-      try {
-        if (form.dataset.favoriteForm === "edit") {
-          const backgroundColorSource =
-            data.get("backgroundColorSource") === "manual" ? "manual" : "auto";
-          favoritesState = await favoritesService.updateFavorite(
-            form.dataset.favoriteId,
-            {
-              url: data.get("url"),
-              label: data.get("label"),
-              iconMode: data.get("iconMode"),
-              customIconUrl: data.get("customIconUrl"),
-              backgroundColor: data.get("backgroundColor"),
-              backgroundColorSource
-            }
-          );
-
-          const updatedItem = favoritesState.items.find(
-            (item) => item.id === form.dataset.favoriteId
-          );
-
-          if (backgroundColorSource === "auto" && updatedItem) {
-            const autoColor = await resolveAutoBackgroundColor(updatedItem);
-
-            if (autoColor !== updatedItem.backgroundColor) {
-              favoritesState = await favoritesService.updateFavorite(
-                updatedItem.id,
-                {
-                  backgroundColor: autoColor,
-                  backgroundColorSource: "auto"
-                }
-              );
-            }
-          }
-
-          favoritesEditingId = null;
-          favoritesError = "";
-          renderFavorites();
-          return;
-        }
-
-        favoritesState = await favoritesService.addFavorite({
-          url: data.get("url"),
-          backgroundColorSource: "auto"
-        });
-        const added = favoritesState.items.at(-1);
-
-        if (added) {
-          const autoColor = await resolveAutoBackgroundColor(added);
-
-          if (autoColor !== added.backgroundColor) {
-            favoritesState = await favoritesService.updateFavorite(added.id, {
-              backgroundColor: autoColor,
-              backgroundColorSource: "auto"
-            });
-          }
-        }
-
-        favoritesMode = "view";
-        favoritesError = "";
-        renderFavorites();
-      } catch (error) {
-        favoritesError = error instanceof Error ? error.message : String(error);
-        renderFavorites();
-      }
-    })();
   });
 }

@@ -1,26 +1,12 @@
 import { fetchNews as defaultFetchNews } from "./dtfApi.js";
 import { isSafeDtfUrl } from "./dtfUrl.js";
+import { createMutationLock } from "./mutationLock.js";
 import { appendEvent, capSeenIds, createInitialState } from "./queueStore.js";
 
 const MAX_FETCH_PAGES_PER_ACTION = 3;
 const QUEUE_MUTATION_LOCK_NAME = "dtf-newtab-queue-extension:mutation";
 
-let fallbackMutationTail = Promise.resolve();
-
-function withQueueMutationLock(mutation) {
-  const lockManager = globalThis.navigator?.locks;
-
-  if (lockManager && typeof lockManager.request === "function") {
-    return lockManager.request(QUEUE_MUTATION_LOCK_NAME, mutation);
-  }
-
-  const result = fallbackMutationTail.then(mutation);
-  fallbackMutationTail = result.then(
-    () => undefined,
-    () => undefined
-  );
-  return result;
-}
+const withQueueMutationLock = createMutationLock(QUEUE_MUTATION_LOCK_NAME);
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);

@@ -1,10 +1,20 @@
+import {
+  cloneValue,
+  hasOwnFields,
+  isNonEmptyString,
+  isParseableTimestamp,
+  isRecord
+} from "./storeUtils.js";
+import {
+  BACKGROUND_COLOR_SOURCES,
+  HEX_COLOR_VALIDATION_PATTERN,
+  ICON_MODES
+} from "./favoritesShared.js";
+
 export const FAVORITES_STORAGE_KEY = "dtfFavorites";
 export const MAX_FAVORITES = 200;
 
 const FAVORITES_VERSION = 1;
-const ICON_MODES = new Set(["favicon", "letter", "custom"]);
-const BACKGROUND_COLOR_SOURCES = new Set(["auto", "manual"]);
-const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 export function createInitialFavoritesState(now = new Date().toISOString()) {
   return {
@@ -13,22 +23,6 @@ export function createInitialFavoritesState(now = new Date().toISOString()) {
     createdAt: now,
     updatedAt: now
   };
-}
-
-function isRecord(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function hasOwnFields(value, fields) {
-  return fields.every((field) => Object.hasOwn(value, field));
-}
-
-function isNonEmptyString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-
-function isParseableTimestamp(value) {
-  return isNonEmptyString(value) && Number.isFinite(Date.parse(value));
 }
 
 function isHttpUrl(value) {
@@ -72,7 +66,7 @@ function isFavoriteItem(value) {
     ICON_MODES.has(value.iconMode) &&
     isCustomIconUrl(value.customIconUrl) &&
     typeof value.backgroundColor === "string" &&
-    HEX_COLOR_PATTERN.test(value.backgroundColor) &&
+    HEX_COLOR_VALIDATION_PATTERN.test(value.backgroundColor) &&
     BACKGROUND_COLOR_SOURCES.has(value.backgroundColorSource) &&
     isParseableTimestamp(value.createdAt) &&
     isParseableTimestamp(value.updatedAt)
@@ -127,8 +121,4 @@ export function createFavoritesStore(
       await storageArea.remove(FAVORITES_STORAGE_KEY);
     }
   };
-}
-
-function cloneValue(value) {
-  return structuredClone(value);
 }

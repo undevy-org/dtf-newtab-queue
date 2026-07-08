@@ -1,6 +1,4 @@
-function trimString(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
+import { trimString } from "./favoritesShared.js";
 
 function getAltText(item) {
   return item.label || item.domain;
