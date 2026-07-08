@@ -1,4 +1,8 @@
-import { fallbackColorForDomain, readableTextColor } from "./favoriteColor.js";
+import {
+  extractImageBackgroundColor,
+  fallbackColorForDomain,
+  readableTextColor
+} from "./favoriteColor.js";
 import { getFavoriteIconModel, getFavoriteLetter } from "./favoriteIcon.js";
 import { createFavoritesService } from "./favoritesService.js";
 import { createFavoritesStore } from "./favoritesStore.js";
@@ -448,6 +452,40 @@ function createEditForm(item) {
   return form;
 }
 
+function loadBrowserImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Image failed to load"));
+    image.src = src;
+  });
+}
+
+function createBrowserCanvas(width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
+
+async function resolveAutoBackgroundColor(item) {
+  const fallback = fallbackColorForDomain(item.domain);
+  const iconModel = getFavoriteIconModel(item, { extensionId });
+  const imageUrl = iconModel.type === "image" ? iconModel.src : "";
+
+  if (!imageUrl) {
+    return fallback;
+  }
+
+  return (
+    (await extractImageBackgroundColor(imageUrl, {
+      loadImage: loadBrowserImage,
+      createCanvas: createBrowserCanvas
+    })) ?? fallback
+  );
+}
+
 function renderFavorites() {
   if (!favoritesRoot) {
     return;
@@ -672,6 +710,8 @@ if (app) {
 
       try {
         if (form.dataset.favoriteForm === "edit") {
+          const backgroundColorSource =
+            data.get("backgroundColorSource") === "manual" ? "manual" : "auto";
           favoritesState = await favoritesService.updateFavorite(
             form.dataset.favoriteId,
             {
@@ -680,9 +720,28 @@ if (app) {
               iconMode: data.get("iconMode"),
               customIconUrl: data.get("customIconUrl"),
               backgroundColor: data.get("backgroundColor"),
-              backgroundColorSource: data.get("backgroundColorSource")
+              backgroundColorSource
             }
           );
+
+          const updatedItem = favoritesState.items.find(
+            (item) => item.id === form.dataset.favoriteId
+          );
+
+          if (backgroundColorSource === "auto" && updatedItem) {
+            const autoColor = await resolveAutoBackgroundColor(updatedItem);
+
+            if (autoColor !== updatedItem.backgroundColor) {
+              favoritesState = await favoritesService.updateFavorite(
+                updatedItem.id,
+                {
+                  backgroundColor: autoColor,
+                  backgroundColorSource: "auto"
+                }
+              );
+            }
+          }
+
           favoritesEditingId = null;
           favoritesError = "";
           renderFavorites();
@@ -690,8 +749,22 @@ if (app) {
         }
 
         favoritesState = await favoritesService.addFavorite({
-          url: data.get("url")
+          url: data.get("url"),
+          backgroundColorSource: "auto"
         });
+        const added = favoritesState.items.at(-1);
+
+        if (added) {
+          const autoColor = await resolveAutoBackgroundColor(added);
+
+          if (autoColor !== added.backgroundColor) {
+            favoritesState = await favoritesService.updateFavorite(added.id, {
+              backgroundColor: autoColor,
+              backgroundColorSource: "auto"
+            });
+          }
+        }
+
         favoritesMode = "view";
         favoritesError = "";
         renderFavorites();
