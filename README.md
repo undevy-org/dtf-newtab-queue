@@ -6,6 +6,10 @@ A small Manifest V3 extension for Chromium-based browsers that turns the new tab
 
 ## Features
 
+- Shows a personal favorites bar at the top of the new tab page.
+- Lets you add, edit, delete, and reorder saved links directly on the new tab page.
+- Opens saved favorites in the current tab.
+- Uses site favicons with letter and custom-image fallbacks.
 - Shows exactly one DTF headline at a time.
 - Keeps the current card until you explicitly process it.
 - **Просмотрел** advances without leaving the new tab page.
@@ -48,10 +52,14 @@ you left off.
 
 The manifest requests only:
 
-- `storage` to persist the queue locally;
+- `storage` to persist the queue and saved favorites locally;
+- `favicon` to display site favicons in the favorites bar;
 - host access to `https://api.dtf.ru/*` to read the news feed.
 
-API requests include DTF credentials so the extension can use the browser's signed-in DTF session. Queue data never leaves `chrome.storage.local`. See [Privacy](docs/privacy.md) for details.
+Favorites are stored in `chrome.storage.local` under the current browser profile.
+They are not Chrome bookmarks and are not synced in this version.
+
+API requests include DTF credentials so the extension can use the browser's signed-in DTF session. Queue and favorites data never leaves `chrome.storage.local`. See [Privacy](docs/privacy.md) for details.
 Requests are sent with `credentials: "include"`, so they carry your existing DTF
 session cookies to `api.dtf.ru`; the extension never reads or copies those cookies.
 
