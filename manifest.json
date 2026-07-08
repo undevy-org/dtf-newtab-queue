@@ -3,7 +3,7 @@
   "name": "DTF Queue New Tab",
   "version": "0.2.0",
   "description": "Shows a manual one-card queue of DTF news on the new tab page.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "favicon"],
   "host_permissions": ["https://api.dtf.ru/*"],
   "chrome_url_overrides": {
     "newtab": "src/newtab.html"
