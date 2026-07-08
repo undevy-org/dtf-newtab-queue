@@ -354,7 +354,8 @@ function createAddForm() {
 
   const input = createNode("input", "favorite-input");
   input.name = "url";
-  input.type = "url";
+  input.type = "text";
+  input.inputMode = "url";
   input.placeholder = "https://example.com";
   input.required = true;
   input.autocomplete = "url";
@@ -377,7 +378,8 @@ function createEditForm(item) {
 
   const url = createNode("input", "favorite-input");
   url.name = "url";
-  url.type = "url";
+  url.type = "text";
+  url.inputMode = "url";
   url.value = item.url;
   url.required = true;
   url.autocomplete = "url";
@@ -404,7 +406,8 @@ function createEditForm(item) {
 
   const customIconUrl = createNode("input", "favorite-input");
   customIconUrl.name = "customIconUrl";
-  customIconUrl.type = "url";
+  customIconUrl.type = "text";
+  customIconUrl.inputMode = "url";
   customIconUrl.value = item.customIconUrl ?? "";
   customIconUrl.placeholder = "https://example.com/icon.png";
 
