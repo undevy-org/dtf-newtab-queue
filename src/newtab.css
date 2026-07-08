@@ -47,13 +47,10 @@ body {
 .page {
   min-height: 100vh;
   display: grid;
-  place-items: center;
-  padding: 24px;
-}
-
-.page {
   align-content: center;
+  justify-items: center;
   gap: 18px;
+  padding: 24px;
 }
 
 .favorites-bar {
@@ -87,6 +84,7 @@ body {
   color: var(--favorite-fg, var(--text));
   font: inherit;
   cursor: pointer;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 12%);
 }
 
 .favorite-icon,
@@ -113,6 +111,7 @@ body {
   color: var(--primary);
   font-size: 28px;
   line-height: 1;
+  box-shadow: none;
 }
 
 .favorites-actions {
@@ -173,6 +172,21 @@ body {
 .favorite-mini-button:disabled {
   cursor: default;
   opacity: 0.45;
+}
+
+.favorite-tile:hover,
+.favorite-settings:hover,
+.favorite-mini-button:hover {
+  border-color: var(--primary);
+}
+
+.favorite-tile:focus-visible,
+.favorite-settings:focus-visible,
+.favorite-mini-button:focus-visible,
+.favorite-input:focus-visible,
+.favorite-color-input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .favorite-form--editor {
@@ -293,7 +307,7 @@ body {
 
 @media (max-width: 520px) {
   .page {
-    align-items: start;
+    align-content: start;
     padding: 16px;
   }
 
@@ -305,11 +319,17 @@ body {
     font-size: 22px;
   }
 
-  .actions {
+  .actions,
+  .favorite-form {
     flex-direction: column;
   }
 
-  .button {
+  .button,
+  .favorite-input {
     width: 100%;
+  }
+
+  .favorites-grid {
+    --favorite-tile-height: 52px;
   }
 }
