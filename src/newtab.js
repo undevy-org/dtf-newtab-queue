@@ -313,10 +313,13 @@ function createFavoriteTile(item) {
   const iconModel = getFavoriteIconModel(item, { extensionId });
 
   button.type = "button";
-  button.dataset.favoriteAction = "open";
+  button.dataset.favoriteAction = favoritesMode === "edit" ? "edit" : "open";
   button.dataset.favoriteId = item.id;
   button.title = item.label;
-  button.setAttribute("aria-label", `Открыть ${item.label}`);
+  button.setAttribute(
+    "aria-label",
+    favoritesMode === "edit" ? `Редактировать ${item.label}` : `Открыть ${item.label}`
+  );
   button.style.setProperty("--favorite-bg", item.backgroundColor);
   button.style.setProperty("--favorite-fg", readableTextColor(item.backgroundColor));
   button.appendChild(createFavoriteIconNode(iconModel, item));
@@ -363,6 +366,88 @@ function createAddForm() {
   return form;
 }
 
+function createEditForm(item) {
+  const form = createNode("form", "favorite-form favorite-form--editor");
+  form.dataset.favoriteForm = "edit";
+  form.dataset.favoriteId = item.id;
+
+  const url = createNode("input", "favorite-input");
+  url.name = "url";
+  url.type = "url";
+  url.value = item.url;
+  url.required = true;
+  url.autocomplete = "url";
+
+  const label = createNode("input", "favorite-input");
+  label.name = "label";
+  label.type = "text";
+  label.value = item.label;
+  label.placeholder = item.domain;
+
+  const iconMode = createNode("select", "favorite-input");
+  iconMode.name = "iconMode";
+
+  for (const [value, text] of [
+    ["favicon", "С сайта"],
+    ["letter", "Буква"],
+    ["custom", "Своя"]
+  ]) {
+    const option = createNode("option", "", text);
+    option.value = value;
+    option.selected = value === item.iconMode;
+    iconMode.appendChild(option);
+  }
+
+  const customIconUrl = createNode("input", "favorite-input");
+  customIconUrl.name = "customIconUrl";
+  customIconUrl.type = "url";
+  customIconUrl.value = item.customIconUrl ?? "";
+  customIconUrl.placeholder = "https://example.com/icon.png";
+
+  const backgroundColorSource = createNode("select", "favorite-input");
+  backgroundColorSource.name = "backgroundColorSource";
+
+  for (const [value, text] of [
+    ["auto", "Автоцвет"],
+    ["manual", "Ручной цвет"]
+  ]) {
+    const option = createNode("option", "", text);
+    option.value = value;
+    option.selected = value === item.backgroundColorSource;
+    backgroundColorSource.appendChild(option);
+  }
+
+  const color = createNode("input", "favorite-color-input");
+  color.name = "backgroundColor";
+  color.type = "color";
+  color.value = item.backgroundColor;
+
+  const save = createNode("button", "button button--primary", "Сохранить");
+  save.type = "submit";
+
+  const cancel = createNode("button", "button", "Отмена");
+  cancel.type = "button";
+  cancel.dataset.favoriteAction = "cancel";
+
+  const remove = createNode("button", "button button--danger", "Удалить");
+  remove.type = "button";
+  remove.dataset.favoriteAction = "delete";
+  remove.dataset.favoriteId = item.id;
+
+  form.append(
+    url,
+    label,
+    iconMode,
+    customIconUrl,
+    backgroundColorSource,
+    color,
+    save,
+    cancel,
+    remove
+  );
+  return form;
+}
+
 function renderFavorites() {
   if (!favoritesRoot) {
     return;
@@ -370,10 +455,31 @@ function renderFavorites() {
 
   const fragment = document.createDocumentFragment();
   const grid = createNode("div", "favorites-grid");
+  const items = favoritesState?.items ?? [];
 
-  for (const item of favoritesState?.items ?? []) {
-    grid.appendChild(createFavoriteTile(item));
-  }
+  items.forEach((item, index) => {
+    const wrapper = createNode("div", "favorite-tile-wrap");
+    wrapper.appendChild(createFavoriteTile(item));
+
+    if (favoritesMode === "edit") {
+      const moveRow = createNode("div", "favorite-move-row");
+      const left = createNode("button", "favorite-mini-button", "‹");
+      const right = createNode("button", "favorite-mini-button", "›");
+
+      left.type = "button";
+      right.type = "button";
+      left.dataset.favoriteAction = "move-left";
+      right.dataset.favoriteAction = "move-right";
+      left.dataset.favoriteId = item.id;
+      right.dataset.favoriteId = item.id;
+      left.disabled = index === 0;
+      right.disabled = index === items.length - 1;
+      moveRow.append(left, right);
+      wrapper.appendChild(moveRow);
+    }
+
+    grid.appendChild(wrapper);
+  });
 
   grid.appendChild(createFavoriteAddButton());
   fragment.appendChild(grid);
@@ -381,6 +487,12 @@ function renderFavorites() {
 
   if (favoritesMode === "add") {
     fragment.appendChild(createAddForm());
+  }
+
+  const editingItem = items.find((item) => item.id === favoritesEditingId);
+
+  if (favoritesMode === "edit" && editingItem) {
+    fragment.appendChild(createEditForm(editingItem));
   }
 
   if (favoritesError) {
@@ -477,6 +589,55 @@ if (app) {
       favoritesEditingId = null;
       favoritesError = "";
       renderFavorites();
+    } else if (action === "toggle-edit") {
+      favoritesMode = favoritesMode === "edit" ? "view" : "edit";
+      favoritesEditingId = null;
+      favoritesError = "";
+      renderFavorites();
+    } else if (action === "edit") {
+      favoritesEditingId = target.dataset.favoriteId ?? null;
+      favoritesError = "";
+      renderFavorites();
+    } else if (action === "delete") {
+      void (async () => {
+        if (!favoritesService) {
+          favoritesError = "Недоступны API Chrome для избранного.";
+          renderFavorites();
+          return;
+        }
+
+        try {
+          favoritesState = await favoritesService.deleteFavorite(
+            target.dataset.favoriteId
+          );
+          favoritesEditingId = null;
+          favoritesError = "";
+          renderFavorites();
+        } catch (error) {
+          favoritesError = error instanceof Error ? error.message : String(error);
+          renderFavorites();
+        }
+      })();
+    } else if (action === "move-left" || action === "move-right") {
+      void (async () => {
+        if (!favoritesService) {
+          favoritesError = "Недоступны API Chrome для избранного.";
+          renderFavorites();
+          return;
+        }
+
+        try {
+          favoritesState = await favoritesService.moveFavorite(
+            target.dataset.favoriteId,
+            action === "move-left" ? -1 : 1
+          );
+          favoritesError = "";
+          renderFavorites();
+        } catch (error) {
+          favoritesError = error instanceof Error ? error.message : String(error);
+          renderFavorites();
+        }
+      })();
     } else if (action === "open") {
       const favorite = favoritesState?.items.find(
         (item) => item.id === target.dataset.favoriteId
@@ -491,7 +652,10 @@ if (app) {
   favoritesRoot?.addEventListener("submit", (event) => {
     const form = event.target;
 
-    if (!(form instanceof HTMLFormElement) || form.dataset.favoriteForm !== "add") {
+    if (
+      !(form instanceof HTMLFormElement) ||
+      !["add", "edit"].includes(form.dataset.favoriteForm ?? "")
+    ) {
       return;
     }
 
@@ -507,6 +671,24 @@ if (app) {
       const data = new FormData(form);
 
       try {
+        if (form.dataset.favoriteForm === "edit") {
+          favoritesState = await favoritesService.updateFavorite(
+            form.dataset.favoriteId,
+            {
+              url: data.get("url"),
+              label: data.get("label"),
+              iconMode: data.get("iconMode"),
+              customIconUrl: data.get("customIconUrl"),
+              backgroundColor: data.get("backgroundColor"),
+              backgroundColorSource: data.get("backgroundColorSource")
+            }
+          );
+          favoritesEditingId = null;
+          favoritesError = "";
+          renderFavorites();
+          return;
+        }
+
         favoritesState = await favoritesService.addFavorite({
           url: data.get("url")
         });
