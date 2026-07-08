@@ -41,6 +41,17 @@ describe("favoriteColor", () => {
     assert.equal(pickDominantColorFromPixels(pixels), null);
   });
 
+  it("ignores neutral browser fallback gray when a real accent color is present", () => {
+    const pixels = [
+      95, 99, 104, 255,
+      95, 99, 104, 255,
+      95, 99, 104, 255,
+      9, 105, 218, 255
+    ];
+
+    assert.equal(pickDominantColorFromPixels(pixels), "#0969da");
+  });
+
   it("returns readable text colors based on background luminance", () => {
     assert.equal(readableTextColor("#111318"), "#ffffff");
     assert.equal(readableTextColor("#f3f5f7"), "#111318");

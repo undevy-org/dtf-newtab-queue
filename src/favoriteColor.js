@@ -23,6 +23,14 @@ function quantizeColor(value) {
   return Math.min(Math.round(value / 8) * 8, 248);
 }
 
+function isUninformativeNeutralColor(red, green, blue) {
+  const maximum = Math.max(red, green, blue);
+  const minimum = Math.min(red, green, blue);
+  const average = (red + green + blue) / 3;
+
+  return maximum - minimum <= 12 && average >= 70 && average <= 190;
+}
+
 function parseHexColor(color) {
   const match = HEX_COLOR_PATTERN.exec(color);
 
@@ -65,7 +73,11 @@ export function pickDominantColorFromPixels(pixels) {
     const blue = pixels[index + 2];
     const alpha = pixels[index + 3];
 
-    if (alpha < 128 || (red > 232 && green > 232 && blue > 232)) {
+    if (
+      alpha < 128 ||
+      (red > 232 && green > 232 && blue > 232) ||
+      isUninformativeNeutralColor(red, green, blue)
+    ) {
       continue;
     }
 
