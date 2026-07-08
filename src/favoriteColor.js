@@ -117,11 +117,20 @@ export async function extractImageBackgroundColor(
   imageUrl,
   options = {}
 ) {
+  const { loadImage, createCanvas, sampleSize = 32 } = options;
+
+  if (typeof loadImage !== "function") {
+    throw new TypeError("loadImage must be a function");
+  }
+
+  if (typeof createCanvas !== "function") {
+    throw new TypeError("createCanvas must be a function");
+  }
+
   try {
-    const { loadImage, createCanvas, sampleSize = 32 } = options;
     const image = await loadImage(imageUrl);
     const canvas = createCanvas(sampleSize, sampleSize);
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
 
     context.drawImage(image, 0, 0, sampleSize, sampleSize);
 

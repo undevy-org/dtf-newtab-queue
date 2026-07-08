@@ -57,6 +57,23 @@ describe("favoriteIcon", () => {
     );
   });
 
+  it("falls back to a letter when custom mode has no custom URL", () => {
+    assert.deepEqual(
+      getFavoriteIconModel(
+        favorite({
+          iconMode: "custom",
+          customIconUrl: null
+        }),
+        { extensionId: "abc123" }
+      ),
+      {
+        type: "letter",
+        letter: "E",
+        alt: "Example"
+      }
+    );
+  });
+
   it("returns a letter model for letter mode", () => {
     assert.deepEqual(
       getFavoriteIconModel(favorite({ iconMode: "letter" }), {

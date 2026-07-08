@@ -72,6 +72,7 @@ describe("favoriteColor", () => {
         return {
           getContext(type) {
             assert.equal(type, "2d");
+            assert.deepEqual(arguments[1], { willReadFrequently: true });
             return context;
           }
         };
@@ -94,5 +95,19 @@ describe("favoriteColor", () => {
     });
 
     assert.equal(color, null);
+  });
+
+  it("rejects missing extraction adapters", async () => {
+    await assert.rejects(
+      () => extractImageBackgroundColor("https://example.com/icon.png", {}),
+      /loadImage must be a function/
+    );
+    await assert.rejects(
+      () =>
+        extractImageBackgroundColor("https://example.com/icon.png", {
+          loadImage: async () => ({})
+        }),
+      /createCanvas must be a function/
+    );
   });
 });
