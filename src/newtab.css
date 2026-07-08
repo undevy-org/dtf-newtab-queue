@@ -61,13 +61,17 @@ body {
 
 .favorites-grid {
   --favorite-tile-height: 56px;
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fit,
-    minmax(var(--favorite-tile-height), calc(var(--favorite-tile-height) * 2))
-  );
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
+}
+
+.favorite-tile-wrap,
+.favorites-grid > .favorite-tile {
+  flex: 1 1 var(--favorite-tile-height);
+  min-width: var(--favorite-tile-height);
+  max-width: calc(var(--favorite-tile-height) * 2);
 }
 
 .favorite-tile {
