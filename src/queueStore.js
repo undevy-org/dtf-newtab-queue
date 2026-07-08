@@ -1,4 +1,11 @@
 import { isSafeDtfUrl } from "./dtfUrl.js";
+import {
+  cloneValue,
+  hasOwnFields,
+  isNonEmptyString,
+  isParseableTimestamp,
+  isRecord
+} from "./storeUtils.js";
 
 export const STORAGE_KEY = "dtfQueueState";
 export const MAX_EVENTS = 500;
@@ -61,24 +68,8 @@ export function appendEvent(
   };
 }
 
-function isRecord(value) {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function hasOwnFields(value, fields) {
-  return fields.every((field) => Object.hasOwn(value, field));
-}
-
 function isFiniteNumberOrNull(value) {
   return value === null || (typeof value === "number" && Number.isFinite(value));
-}
-
-function isNonEmptyString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-
-function isParseableTimestamp(value) {
-  return isNonEmptyString(value) && Number.isFinite(Date.parse(value));
 }
 
 function isQueueItem(value) {
@@ -217,8 +208,4 @@ export function createMemoryStorageArea(initialValues = {}) {
       delete values[key];
     }
   };
-}
-
-function cloneValue(value) {
-  return structuredClone(value);
 }

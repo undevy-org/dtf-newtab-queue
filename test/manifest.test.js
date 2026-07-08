@@ -11,10 +11,10 @@ async function readManifest() {
 }
 
 describe("manifest", () => {
-  it("uses only the required storage and DTF API privileges", async () => {
+  it("uses only the required storage, favicon, and DTF API privileges", async () => {
     const manifest = await readManifest();
 
-    assert.deepEqual(manifest.permissions, ["storage"]);
+    assert.deepEqual(manifest.permissions, ["storage", "favicon"]);
     assert.deepEqual(manifest.host_permissions, ["https://api.dtf.ru/*"]);
   });
 });
