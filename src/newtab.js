@@ -255,7 +255,10 @@ function createUnavailableService(message) {
 
 const chromeApi = globalThis.chrome;
 const storageArea = chromeApi?.storage?.local;
-const extensionId = chromeApi?.runtime?.id ?? "";
+const faviconBaseUrl =
+  typeof chromeApi?.runtime?.getURL === "function"
+    ? chromeApi.runtime.getURL("/_favicon/")
+    : "";
 
 const favoritesService =
   storageArea &&
@@ -316,7 +319,7 @@ function createFavoriteIconNode(model, item) {
 
 function createFavoriteTile(item) {
   const button = createNode("button", "favorite-tile");
-  const iconModel = getFavoriteIconModel(item, { extensionId });
+  const iconModel = getFavoriteIconModel(item, { faviconBaseUrl });
 
   button.type = "button";
   button.dataset.favoriteAction = favoritesMode === "edit" ? "edit" : "open";
@@ -490,7 +493,7 @@ function createBrowserCanvas(width, height) {
 
 async function resolveAutoBackgroundColor(item) {
   const fallback = fallbackColorForDomain(item.domain);
-  const iconModel = getFavoriteIconModel(item, { extensionId });
+  const iconModel = getFavoriteIconModel(item, { faviconBaseUrl });
   const imageUrl = iconModel.type === "image" ? iconModel.src : "";
 
   if (!imageUrl) {

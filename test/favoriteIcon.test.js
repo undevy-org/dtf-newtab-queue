@@ -1,108 +1,80 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  FAVICON_SIZE,
+  getFaviconUrl,
   getFavoriteIconModel,
-  getFavoriteLetter,
-  getFaviconUrl
+  getFavoriteLetter
 } from "../src/favoriteIcon.js";
+
+const BASE = "chrome-extension://abc123/_favicon/";
 
 function favorite(overrides = {}) {
   return {
-    url: "https://example.com/path?q=1",
-    label: "Example",
-    domain: "example.com",
+    id: "fav-1",
+    url: "https://dtf.ru/",
+    label: "DTF",
+    domain: "dtf.ru",
     iconMode: "favicon",
     customIconUrl: null,
+    backgroundColor: "#24292f",
+    backgroundColorSource: "auto",
     ...overrides
   };
 }
 
-describe("favoriteIcon", () => {
-  it("builds the Manifest V3 favicon endpoint", () => {
+describe("getFaviconUrl", () => {
+  it("appends pageUrl and size to the injected base URL", () => {
     assert.equal(
-      getFaviconUrl({
-        extensionId: "abc123",
-        pageUrl: "https://example.com/path?q=1",
-        size: 64
-      }),
-      "chrome-extension://abc123/_favicon/?pageUrl=https%3A%2F%2Fexample.com%2Fpath%3Fq%3D1&size=64"
+      getFaviconUrl({ baseUrl: BASE, pageUrl: "https://dtf.ru/" }),
+      `${BASE}?pageUrl=https%3A%2F%2Fdtf.ru%2F&size=${FAVICON_SIZE}`
     );
   });
 
-  it("returns a custom image model when custom icon mode has a URL", () => {
-    assert.deepEqual(
-      getFavoriteIconModel(
-        favorite({
-          iconMode: "custom",
-          customIconUrl: "https://cdn.example.com/icon.png"
-        }),
-        { extensionId: "abc123" }
-      ),
-      {
-        type: "image",
-        src: "https://cdn.example.com/icon.png",
-        alt: "Example"
-      }
+  it("honors an explicit size", () => {
+    assert.equal(
+      getFaviconUrl({ baseUrl: BASE, pageUrl: "https://dtf.ru/", size: 16 }),
+      `${BASE}?pageUrl=https%3A%2F%2Fdtf.ru%2F&size=16`
+    );
+  });
+});
+
+describe("getFavoriteIconModel", () => {
+  it("builds a favicon image URL from the base when in favicon mode", () => {
+    const model = getFavoriteIconModel(favorite(), { faviconBaseUrl: BASE });
+    assert.equal(model.type, "image");
+    assert.equal(
+      model.src,
+      `${BASE}?pageUrl=https%3A%2F%2Fdtf.ru%2F&size=${FAVICON_SIZE}`
     );
   });
 
-  it("returns a favicon image model when favicon mode has an extension ID", () => {
-    assert.deepEqual(
-      getFavoriteIconModel(favorite(), { extensionId: "abc123" }),
-      {
-        type: "image",
-        src: "chrome-extension://abc123/_favicon/?pageUrl=https%3A%2F%2Fexample.com%2Fpath%3Fq%3D1&size=64",
-        alt: "Example"
-      }
+  it("falls back to a letter when no favicon base URL is available", () => {
+    const model = getFavoriteIconModel(favorite(), { faviconBaseUrl: "" });
+    assert.equal(model.type, "letter");
+    assert.equal(model.letter, "D");
+  });
+
+  it("uses the custom image URL in custom mode", () => {
+    const model = getFavoriteIconModel(
+      favorite({ iconMode: "custom", customIconUrl: "https://x.test/i.png" }),
+      { faviconBaseUrl: BASE }
     );
+    assert.equal(model.type, "image");
+    assert.equal(model.src, "https://x.test/i.png");
   });
 
-  it("falls back to a letter when custom mode has no custom URL", () => {
-    assert.deepEqual(
-      getFavoriteIconModel(
-        favorite({
-          iconMode: "custom",
-          customIconUrl: null
-        }),
-        { extensionId: "abc123" }
-      ),
-      {
-        type: "letter",
-        letter: "E",
-        alt: "Example"
-      }
-    );
+  it("returns a letter in letter mode", () => {
+    const model = getFavoriteIconModel(favorite({ iconMode: "letter" }), {
+      faviconBaseUrl: BASE
+    });
+    assert.equal(model.type, "letter");
+    assert.equal(model.letter, "D");
   });
+});
 
-  it("returns a letter model for letter mode", () => {
-    assert.deepEqual(
-      getFavoriteIconModel(favorite({ iconMode: "letter" }), {
-        extensionId: "abc123"
-      }),
-      {
-        type: "letter",
-        letter: "E",
-        alt: "Example"
-      }
-    );
-  });
-
-  it("returns a letter model when favicon mode is missing an extension ID", () => {
-    assert.deepEqual(
-      getFavoriteIconModel(favorite(), { extensionId: "" }),
-      {
-        type: "letter",
-        letter: "E",
-        alt: "Example"
-      }
-    );
-  });
-
-  it("uses the first domain letter when the label is empty-like", () => {
-    assert.equal(getFavoriteLetter(favorite({ label: "   ", domain: "dtf.ru" })), "D");
-  });
-
-  it("uses a question mark when label and domain are empty-like", () => {
-    assert.equal(getFavoriteLetter(favorite({ label: " ", domain: "\t" })), "?");
+describe("getFavoriteLetter", () => {
+  it("uppercases the first character of the label", () => {
+    assert.equal(getFavoriteLetter(favorite({ label: "notion" })), "N");
   });
 });

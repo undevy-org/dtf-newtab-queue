@@ -1,19 +1,21 @@
 import { trimString } from "./favoritesShared.js";
 
+export const FAVICON_SIZE = 32;
+
 function getAltText(item) {
   return item.label || item.domain;
 }
 
-export function getFaviconUrl({ extensionId, pageUrl, size = 64 }) {
+export function getFaviconUrl({ baseUrl, pageUrl, size = FAVICON_SIZE }) {
   const params = new URLSearchParams({
     pageUrl,
     size: String(size)
   });
 
-  return `chrome-extension://${extensionId}/_favicon/?${params.toString()}`;
+  return `${baseUrl}?${params.toString()}`;
 }
 
-export function getFavoriteIconModel(item, { extensionId } = {}) {
+export function getFavoriteIconModel(item, { faviconBaseUrl } = {}) {
   const alt = getAltText(item);
 
   if (item.iconMode === "custom" && item.customIconUrl) {
@@ -24,13 +26,13 @@ export function getFavoriteIconModel(item, { extensionId } = {}) {
     };
   }
 
-  if (item.iconMode === "favicon" && extensionId) {
+  if (item.iconMode === "favicon" && faviconBaseUrl) {
     return {
       type: "image",
       src: getFaviconUrl({
-        extensionId,
+        baseUrl: faviconBaseUrl,
         pageUrl: item.url,
-        size: 64
+        size: FAVICON_SIZE
       }),
       alt
     };
