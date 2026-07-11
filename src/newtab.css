@@ -92,26 +92,49 @@ body {
 }
 
 .favorite-tile {
-  min-width: var(--favorite-tile-height);
-  max-width: calc(var(--favorite-tile-height) * 2);
-  width: 100%;
+  --favorite-accent-rgb: 105, 168, 255;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 52px;
   height: var(--favorite-tile-height);
-  display: grid;
-  place-items: center;
-  padding: 10px;
-  border: 1px solid rgb(0 0 0 / 14%);
-  border-radius: 12px;
-  background: var(--favorite-bg, var(--panel));
-  color: var(--favorite-fg, var(--text));
+  padding: 0 14px;
+  border: 1px solid rgb(var(--favorite-accent-rgb) / 78%);
+  border-radius: 13px;
+  background: linear-gradient(
+    135deg,
+    rgb(var(--favorite-accent-rgb) / 18%),
+    rgb(var(--favorite-accent-rgb) / 6%)
+  );
+  color: var(--text);
   font: inherit;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgb(0 0 0 / 12%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 6px 18px rgb(var(--favorite-accent-rgb) / 12%);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.favorite-tile:hover:not(:disabled),
+.favorite-tile:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgb(var(--favorite-accent-rgb) / 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 16%),
+    0 12px 26px rgb(var(--favorite-accent-rgb) / 22%);
+}
+
+.favorite-tile:disabled {
+  cursor: default;
+  opacity: 0.55;
 }
 
 .favorite-icon,
 .favorite-letter {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
 }
 
 .favorite-icon {
@@ -121,7 +144,10 @@ body {
 .favorite-letter {
   display: grid;
   place-items: center;
-  font-size: 18px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 12%);
+  color: var(--text);
+  font-size: 15px;
   font-weight: 800;
 }
 

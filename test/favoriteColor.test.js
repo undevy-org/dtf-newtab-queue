@@ -5,8 +5,7 @@ import {
   fallbackColorForDomain,
   hexToRgbChannels,
   normalizeAccentLightness,
-  pickDominantColorFromPixels,
-  readableTextColor
+  pickDominantColorFromPixels
 } from "../src/favoriteColor.js";
 
 describe("favoriteColor", () => {
@@ -52,11 +51,6 @@ describe("favoriteColor", () => {
     ];
 
     assert.equal(pickDominantColorFromPixels(pixels), "#0969da");
-  });
-
-  it("returns readable text colors based on background luminance", () => {
-    assert.equal(readableTextColor("#111318"), "#ffffff");
-    assert.equal(readableTextColor("#f3f5f7"), "#111318");
   });
 
   it("extracts the dominant background color from image pixels", async () => {

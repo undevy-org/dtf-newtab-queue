@@ -1,7 +1,8 @@
 import {
   extractImageBackgroundColor,
   fallbackColorForDomain,
-  readableTextColor
+  hexToRgbChannels,
+  normalizeAccentLightness
 } from "./favoriteColor.js";
 import { getFavoriteIconModel, getFavoriteLetter } from "./favoriteIcon.js";
 import {
@@ -344,7 +345,10 @@ function createFavoriteTile(item) {
   button.dataset.favoriteId = item.id;
   button.title = item.label;
   button.setAttribute("aria-label", `Открыть ${item.label}`);
-  button.style.setProperty("--favorite-bg", item.backgroundColor);
+  button.style.setProperty(
+    "--favorite-accent-rgb",
+    hexToRgbChannels(normalizeAccentLightness(item.backgroundColor))
+  );
   button.appendChild(createFavoriteIconNode(iconModel, item));
 
   const tileDisabled = favoritesBusy || isFormOpen(favoritesUi);
@@ -434,8 +438,8 @@ function createEditForm(item) {
   backgroundColorSource.name = "backgroundColorSource";
 
   for (const [value, text] of [
-    ["auto", "Автоцвет"],
-    ["manual", "Ручной цвет"]
+    ["auto", "Определять по favicon"],
+    ["manual", "Основной цвет вручную"]
   ]) {
     const option = createNode("option", "", text);
     option.value = value;
@@ -446,6 +450,14 @@ function createEditForm(item) {
   const color = createNode("input", "favorite-color-input");
   color.name = "backgroundColor";
   color.type = "color";
+  color.dataset.role = "manual-color";
+  const syncColorEnabled = () => {
+    color.style.pointerEvents =
+      backgroundColorSource.value === "manual" ? "auto" : "none";
+    color.style.opacity = backgroundColorSource.value === "manual" ? "1" : "0.5";
+  };
+  backgroundColorSource.addEventListener("change", syncColorEnabled);
+  syncColorEnabled();
   color.value = item.backgroundColor;
 
   const save = createNode("button", "button button--primary", "Сохранить");

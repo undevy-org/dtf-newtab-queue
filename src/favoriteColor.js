@@ -103,13 +103,6 @@ function parseHexColor(color) {
   };
 }
 
-function relativeLuminanceComponent(value) {
-  const channel = value / 255;
-  return channel <= 0.03928
-    ? channel / 12.92
-    : ((channel + 0.055) / 1.055) ** 2.4;
-}
-
 export function fallbackColorForDomain(domain) {
   const value = String(domain ?? "").trim().toLowerCase();
   let hash = 0;
@@ -171,16 +164,6 @@ export function pickDominantColorFromPixels(pixels) {
     Math.round(bestBucket.green / bestBucket.count),
     Math.round(bestBucket.blue / bestBucket.count)
   );
-}
-
-export function readableTextColor(backgroundColor) {
-  const { red, green, blue } = parseHexColor(backgroundColor);
-  const luminance =
-    0.2126 * relativeLuminanceComponent(red) +
-    0.7152 * relativeLuminanceComponent(green) +
-    0.0722 * relativeLuminanceComponent(blue);
-
-  return luminance > 0.55 ? "#111318" : "#ffffff";
 }
 
 const ACCENT_MIN_LIGHTNESS = 0.45;
