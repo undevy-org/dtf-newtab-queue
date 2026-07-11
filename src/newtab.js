@@ -4,6 +4,18 @@ import {
   readableTextColor
 } from "./favoriteColor.js";
 import { getFavoriteIconModel, getFavoriteLetter } from "./favoriteIcon.js";
+import {
+  cancelForm,
+  closeSettings,
+  createInitialFavoritesUiState,
+  editingId,
+  isAdding,
+  isFormOpen,
+  isSettingsOpen,
+  openSettings,
+  startAdd,
+  startEdit
+} from "./favoritesUiState.js";
 import { createFavoritesService } from "./favoritesService.js";
 import { createFavoritesStore } from "./favoritesStore.js";
 import { fetchNews } from "./dtfApi.js";
@@ -12,6 +24,7 @@ import { createInitialState, createQueueStore } from "./queueStore.js";
 
 const app = document.querySelector("#app");
 const favoritesRoot = document.querySelector("#favorites");
+const favoritesPanelRoot = document.querySelector("#favorites-panel");
 const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
   day: "2-digit",
   month: "short",
@@ -293,11 +306,11 @@ let currentResult = null;
 let busy = false;
 let busyMessage = "";
 let favoritesState = null;
-let favoritesMode = "view";
-let favoritesEditingId = null;
+let favoritesUi = createInitialFavoritesUiState();
 let favoritesError = "";
 let favoritesBusy = false;
 let favoritesGeneration = 0;
+let pendingGearFocus = false;
 
 function createFavoriteIconNode(model, item) {
   if (model.type === "image") {
@@ -322,44 +335,29 @@ function createFavoriteTile(item) {
   const iconModel = getFavoriteIconModel(item, { faviconBaseUrl });
 
   button.type = "button";
-  button.dataset.favoriteAction = favoritesMode === "edit" ? "edit" : "open";
+  button.dataset.favoriteAction = "open";
   button.dataset.favoriteId = item.id;
   button.title = item.label;
-  button.setAttribute(
-    "aria-label",
-    favoritesMode === "edit" ? `Редактировать ${item.label}` : `Открыть ${item.label}`
-  );
+  button.setAttribute("aria-label", `Открыть ${item.label}`);
   button.style.setProperty("--favorite-bg", item.backgroundColor);
-  button.style.setProperty("--favorite-fg", readableTextColor(item.backgroundColor));
   button.appendChild(createFavoriteIconNode(iconModel, item));
-  const tileDisabled = favoritesBusy || favoritesEditingId !== null;
+
+  const tileDisabled = favoritesBusy || isFormOpen(favoritesUi);
   button.disabled = tileDisabled;
   button.setAttribute("aria-disabled", String(tileDisabled));
   return button;
 }
 
-function createFavoriteAddButton() {
-  const button = createNode("button", "favorite-tile favorite-tile--add", "+");
-  button.type = "button";
-  button.dataset.favoriteAction = "start-add";
-  button.setAttribute("aria-label", "Добавить избранную ссылку");
-  const addDisabled = favoritesBusy || favoritesEditingId !== null || favoritesMode === "add";
-  button.disabled = addDisabled;
-  button.setAttribute("aria-disabled", String(addDisabled));
-  return button;
-}
-
-function createFavoritesActions() {
-  const actions = createNode("div", "favorites-actions");
-  const settings = createNode("button", "favorite-settings", "⚙");
-  settings.type = "button";
-  settings.dataset.favoriteAction = "toggle-edit";
-  settings.setAttribute("aria-label", "Настройки избранных ссылок");
-  const settingsDisabled = favoritesBusy || favoritesEditingId !== null || favoritesMode === "add";
-  settings.disabled = settingsDisabled;
-  settings.setAttribute("aria-disabled", String(settingsDisabled));
-  actions.appendChild(settings);
-  return actions;
+function createFavoritesGear() {
+  const gear = createNode("button", "favorite-settings", "⚙");
+  gear.type = "button";
+  gear.dataset.favoriteAction = "open-settings";
+  gear.setAttribute("aria-label", "Настроить быстрые ссылки");
+  gear.setAttribute("aria-expanded", String(isSettingsOpen(favoritesUi)));
+  gear.setAttribute("aria-controls", "favorites-panel");
+  gear.disabled = favoritesBusy;
+  gear.setAttribute("aria-disabled", String(favoritesBusy));
+  return gear;
 }
 
 function createAddForm() {
@@ -508,53 +506,114 @@ async function resolveAutoBackgroundColor(item) {
   );
 }
 
-function renderFavorites() {
+function createFavoritesPanelRow(item, index, itemCount) {
+  const row = createNode("div", "favorites-panel__row");
+
+  const info = createNode("div", "favorites-panel__item");
+  info.appendChild(createFavoriteIconNode(getFavoriteIconModel(item, { faviconBaseUrl }), item));
+  const text = createNode("div");
+  text.appendChild(createNode("strong", null, item.label));
+  text.appendChild(createNode("span", null, item.domain));
+  info.appendChild(text);
+
+  const controls = createNode("div", "favorites-panel__controls");
+  const disabled = favoritesBusy || isFormOpen(favoritesUi);
+
+  const left = createNode("button", "icon-button", "‹");
+  left.type = "button";
+  left.dataset.favoriteAction = "move-left";
+  left.dataset.favoriteId = item.id;
+  left.setAttribute("aria-label", `Сдвинуть ${item.label} влево`);
+  left.disabled = disabled || index === 0;
+
+  const right = createNode("button", "icon-button", "›");
+  right.type = "button";
+  right.dataset.favoriteAction = "move-right";
+  right.dataset.favoriteId = item.id;
+  right.setAttribute("aria-label", `Сдвинуть ${item.label} вправо`);
+  right.disabled = disabled || index === itemCount - 1;
+
+  const edit = createNode("button", "icon-button", "✎");
+  edit.type = "button";
+  edit.dataset.favoriteAction = "edit";
+  edit.dataset.favoriteId = item.id;
+  edit.setAttribute("aria-label", `Редактировать ${item.label}`);
+  edit.disabled = disabled;
+
+  controls.append(left, right, edit);
+  row.append(info, controls);
+  return row;
+}
+
+function renderFavoritesToolbar() {
   if (!favoritesRoot) {
     return;
   }
 
   const fragment = document.createDocumentFragment();
-  const grid = createNode("div", "favorites-grid");
+  const items = favoritesState?.items ?? [];
+  const list = createNode("div", "favorites-grid");
+
+  for (const item of items) {
+    list.appendChild(createFavoriteTile(item));
+  }
+
+  fragment.appendChild(list);
+  fragment.appendChild(createFavoritesGear());
+  favoritesRoot.replaceChildren(fragment);
+}
+
+function renderFavoritesPanel() {
+  if (!favoritesPanelRoot) {
+    return;
+  }
+
+  const open = isSettingsOpen(favoritesUi);
+  favoritesPanelRoot.hidden = !open;
+
+  if (!open) {
+    favoritesPanelRoot.replaceChildren();
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
   const items = favoritesState?.items ?? [];
 
-  items.forEach((item, index) => {
-    const wrapper = createNode("div", "favorite-tile-wrap");
-    wrapper.appendChild(createFavoriteTile(item));
+  const top = createNode("div", "favorites-panel__top");
+  const heading = createNode("div");
+  heading.appendChild(createNode("h2", null, "Быстрые ссылки"));
+  heading.appendChild(
+    createNode("p", null, "Добавление, порядок, иконка и цвет — в одном месте.")
+  );
+  const addButton = createNode("button", "button button--primary", "Добавить ссылку");
+  addButton.type = "button";
+  addButton.dataset.favoriteAction = "start-add";
+  addButton.disabled = favoritesBusy || isFormOpen(favoritesUi);
+  top.append(heading, addButton);
+  fragment.appendChild(top);
 
-    if (favoritesMode === "edit") {
-      const moveRow = createNode("div", "favorite-move-row");
-      const left = createNode("button", "favorite-mini-button", "‹");
-      const right = createNode("button", "favorite-mini-button", "›");
-
-      left.type = "button";
-      right.type = "button";
-      left.dataset.favoriteAction = "move-left";
-      right.dataset.favoriteAction = "move-right";
-      left.dataset.favoriteId = item.id;
-      right.dataset.favoriteId = item.id;
-      const moveDisabled = favoritesBusy || favoritesEditingId !== null || favoritesMode === "add";
-      left.disabled = moveDisabled || index === 0;
-      right.disabled = moveDisabled || index === items.length - 1;
-      moveRow.append(left, right);
-      wrapper.appendChild(moveRow);
-    }
-
-    grid.appendChild(wrapper);
-  });
-
-  grid.appendChild(createFavoriteAddButton());
-  fragment.appendChild(grid);
-  fragment.appendChild(createFavoritesActions());
-
-  if (favoritesMode === "add") {
+  if (isAdding(favoritesUi)) {
     fragment.appendChild(createAddForm());
   }
 
-  const editingItem = items.find((item) => item.id === favoritesEditingId);
-
-  if (favoritesMode === "edit" && editingItem) {
+  const currentEditingId = editingId(favoritesUi);
+  const editingItem = items.find((item) => item.id === currentEditingId);
+  if (editingItem) {
     fragment.appendChild(createEditForm(editingItem));
   }
+
+  const listWrap = createNode("div", "favorites-panel__list");
+  items.forEach((item, index) => {
+    listWrap.appendChild(createFavoritesPanelRow(item, index, items.length));
+  });
+  fragment.appendChild(listWrap);
+
+  const footer = createNode("div", "favorites-panel__footer");
+  const done = createNode("button", "button", "Готово");
+  done.type = "button";
+  done.dataset.favoriteAction = "close-settings";
+  footer.appendChild(done);
+  fragment.appendChild(footer);
 
   if (favoritesError) {
     fragment.appendChild(
@@ -562,7 +621,20 @@ function renderFavorites() {
     );
   }
 
-  favoritesRoot.replaceChildren(fragment);
+  favoritesPanelRoot.replaceChildren(fragment);
+}
+
+function renderFavorites() {
+  renderFavoritesToolbar();
+  renderFavoritesPanel();
+
+  if (pendingGearFocus) {
+    pendingGearFocus = false;
+    const gear = favoritesRoot?.querySelector('[data-favorite-action="open-settings"]');
+    if (gear instanceof HTMLElement) {
+      gear.focus();
+    }
+  }
 }
 
 function setFavoritesBusy(nextBusy) {
@@ -604,41 +676,43 @@ if (favoritesRoot) {
     }
   })();
 
-  favoritesRoot.addEventListener("click", (event) => {
+  function handleFavoritesClick(event) {
     if (!(event.target instanceof Element)) {
       return;
     }
 
     const target = event.target.closest("[data-favorite-action]");
 
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (favoritesBusy) {
+    if (!(target instanceof HTMLElement) || favoritesBusy) {
       return;
     }
 
     const action = target.dataset.favoriteAction;
 
-    if (action === "start-add") {
-      favoritesMode = "add";
+    if (action === "open-settings") {
+      favoritesUi = openSettings(favoritesUi);
+      favoritesError = "";
+      renderFavorites();
+    } else if (action === "close-settings") {
+      favoritesUi = closeSettings(favoritesUi);
+      favoritesError = "";
+      pendingGearFocus = true;
+      renderFavorites();
+    } else if (action === "start-add") {
+      favoritesUi = startAdd(favoritesUi);
       favoritesError = "";
       renderFavorites();
     } else if (action === "cancel") {
-      favoritesMode = "view";
-      favoritesEditingId = null;
-      favoritesError = "";
-      renderFavorites();
-    } else if (action === "toggle-edit") {
-      favoritesMode = favoritesMode === "edit" ? "view" : "edit";
-      favoritesEditingId = null;
+      favoritesUi = cancelForm(favoritesUi);
       favoritesError = "";
       renderFavorites();
     } else if (action === "edit") {
-      favoritesEditingId = target.dataset.favoriteId ?? null;
-      favoritesError = "";
-      renderFavorites();
+      const id = target.dataset.favoriteId;
+      if (id) {
+        favoritesUi = startEdit(favoritesUi, id);
+        favoritesError = "";
+        renderFavorites();
+      }
     } else if (action === "delete") {
       const generation = startFavoritesAction();
 
@@ -656,7 +730,7 @@ if (favoritesRoot) {
           );
           finishFavoritesAction(generation, () => {
             favoritesState = nextState;
-            favoritesEditingId = null;
+            favoritesUi = cancelForm(favoritesUi);
             favoritesError = "";
           });
         } catch (error) {
@@ -700,9 +774,25 @@ if (favoritesRoot) {
         window.location.assign(favorite.url);
       }
     }
+  }
+
+  favoritesRoot.addEventListener("click", handleFavoritesClick);
+  favoritesPanelRoot?.addEventListener("click", handleFavoritesClick);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || favoritesBusy) {
+      return;
+    }
+
+    if (isSettingsOpen(favoritesUi)) {
+      favoritesUi = closeSettings(favoritesUi);
+      favoritesError = "";
+      pendingGearFocus = true;
+      renderFavorites();
+    }
   });
 
-  favoritesRoot.addEventListener("submit", (event) => {
+  favoritesPanelRoot?.addEventListener("submit", (event) => {
     const form = event.target;
 
     if (
@@ -765,7 +855,7 @@ if (favoritesRoot) {
           }
 
           finishFavoritesAction(generation, () => {
-            favoritesEditingId = null;
+            favoritesUi = cancelForm(favoritesUi);
             favoritesError = "";
           });
           return;
@@ -789,7 +879,7 @@ if (favoritesRoot) {
         }
 
         finishFavoritesAction(generation, () => {
-          favoritesMode = "view";
+          favoritesUi = cancelForm(favoritesUi);
           favoritesError = "";
         });
       } catch (error) {

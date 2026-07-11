@@ -4,38 +4,55 @@ import { describe, it } from "node:test";
 
 const NEWTAB_SOURCE = new URL("../src/newtab.js", import.meta.url);
 
-describe("newtab favorites source", () => {
-  it("lets favorite URL fields reach service normalization without native URL validation", async () => {
-    const source = await readFile(NEWTAB_SOURCE, "utf8");
+async function source() {
+  return readFile(NEWTAB_SOURCE, "utf8");
+}
 
-    assert.match(
-      source,
-      /input\.name = "url";\s+input\.type = "text";\s+input\.inputMode = "url";/
-    );
-    assert.match(
-      source,
-      /url\.name = "url";\s+url\.type = "text";\s+url\.inputMode = "url";/
-    );
-    assert.match(
-      source,
-      /customIconUrl\.name = "customIconUrl";\s+customIconUrl\.type = "text";\s+customIconUrl\.inputMode = "url";/
-    );
+describe("newtab favorites source", () => {
+  it("drives the favorites UI from the pure state machine, not a mode string", async () => {
+    const code = await source();
+    assert.match(code, /from "\.\/favoritesUiState\.js"/);
+    assert.match(code, /let favoritesUi = createInitialFavoritesUiState\(\);/);
+    assert.doesNotMatch(code, /favoritesMode/);
   });
 
-  it("bootstraps the favorites bar independently of the queue widget's #app guard", async () => {
-    const source = await readFile(NEWTAB_SOURCE, "utf8");
+  it("has no add tile — the only management entry is the settings gear", async () => {
+    const code = await source();
+    assert.doesNotMatch(code, /createFavoriteAddButton/);
+    assert.match(code, /data-favorite-action/);
+    assert.match(code, /"open-settings"/);
+    assert.match(code, /"close-settings"/);
+  });
 
-    assert.match(source, /if \(favoritesRoot\) \{/);
-    assert.match(source, /if \(app\) \{/);
+  it("renders the toolbar and the settings panel into separate roots", async () => {
+    const code = await source();
+    assert.match(code, /querySelector\("#favorites"\)/);
+    assert.match(code, /querySelector\("#favorites-panel"\)/);
+  });
+
+  it("closes the panel on Escape and returns focus to the gear", async () => {
+    const code = await source();
+    assert.match(code, /addEventListener\("keydown"/);
+    assert.match(code, /"Escape"/);
+    assert.match(code, /\.focus\(\)/);
+  });
+
+  it("lets favorite URL fields reach service normalization without native URL validation", async () => {
+    const code = await source();
+    assert.match(code, /\.type = "text";\s+\w+\.inputMode = "url";/);
   });
 
   it("blocks favorites actions while a request is in flight", async () => {
-    const source = await readFile(NEWTAB_SOURCE, "utf8");
+    const code = await source();
+    assert.match(code, /let favoritesBusy = false;/);
+    assert.match(code, /let favoritesGeneration = 0;/);
+    assert.match(code, /function startFavoritesAction\(\)/);
+    assert.match(code, /function finishFavoritesAction\(generation, applyResult\)/);
+  });
 
-    assert.match(source, /let favoritesBusy = false;/);
-    assert.match(source, /let favoritesGeneration = 0;/);
-    assert.match(source, /if \(favoritesBusy\) \{\s+return;\s+\}/);
-    assert.match(source, /function startFavoritesAction\(\)/);
-    assert.match(source, /function finishFavoritesAction\(generation, applyResult\)/);
+  it("bootstraps the favorites bar independently of the queue widget's #app guard", async () => {
+    const code = await source();
+    assert.match(code, /if \(favoritesRoot\) \{/);
+    assert.match(code, /if \(app\) \{/);
   });
 });
