@@ -84,27 +84,21 @@ describe("mutationLock", () => {
     assert.deepEqual(order, ["a-start", "b-start", "b-end", "a-end"]);
   });
 
-  it("delegates to navigator.locks.request when available", async () => {
+  it("delegates to an injected lock manager when one is available", async () => {
     const requestedNames = [];
-    const originalNavigator = globalThis.navigator;
-
-    globalThis.navigator = {
-      locks: {
-        request(name, mutation) {
-          requestedNames.push(name);
-          return mutation();
-        }
+    const fakeLockManager = {
+      request(name, mutation) {
+        requestedNames.push(name);
+        return mutation();
       }
     };
 
-    try {
-      const lock = createMutationLock("web-locks-test");
-      const result = await lock(async () => "done");
+    const lock = createMutationLock("web-locks-test", {
+      getLockManager: () => fakeLockManager
+    });
+    const result = await lock(async () => "done");
 
-      assert.equal(result, "done");
-      assert.deepEqual(requestedNames, ["web-locks-test"]);
-    } finally {
-      globalThis.navigator = originalNavigator;
-    }
+    assert.equal(result, "done");
+    assert.deepEqual(requestedNames, ["web-locks-test"]);
   });
 });
