@@ -55,4 +55,9 @@ describe("newtab favorites source", () => {
     assert.match(code, /if \(favoritesRoot\) \{/);
     assert.match(code, /if \(app\) \{/);
   });
+
+  it("tags every icon with its source for observability", async () => {
+    const code = await source();
+    assert.match(code, /data-icon-source|dataset\.iconSource/);
+  });
 });

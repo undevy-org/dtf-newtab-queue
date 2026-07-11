@@ -312,6 +312,12 @@ let favoritesBusy = false;
 let favoritesGeneration = 0;
 let pendingGearFocus = false;
 
+function createFavoriteLetterNode(item, source) {
+  const span = createNode("span", "favorite-letter", getFavoriteLetter(item));
+  span.dataset.iconSource = source;
+  return span;
+}
+
 function createFavoriteIconNode(model, item) {
   if (model.type === "image") {
     const image = createNode("img", "favorite-icon");
@@ -319,15 +325,14 @@ function createFavoriteIconNode(model, item) {
     image.alt = "";
     image.loading = "lazy";
     image.decoding = "async";
+    image.dataset.iconSource = item.iconMode === "custom" ? "custom" : "favicon";
     image.addEventListener("error", () => {
-      image.replaceWith(
-        createNode("span", "favorite-letter", getFavoriteLetter(item))
-      );
+      image.replaceWith(createFavoriteLetterNode(item, "letter"));
     });
     return image;
   }
 
-  return createNode("span", "favorite-letter", model.letter);
+  return createFavoriteLetterNode(item, "letter");
 }
 
 function createFavoriteTile(item) {
@@ -504,6 +509,35 @@ async function resolveAutoBackgroundColor(item) {
       createCanvas: createBrowserCanvas
     })) ?? fallback
   );
+}
+
+async function refreshAutoAccent(id) {
+  if (!favoritesService || !id) {
+    return;
+  }
+
+  const item = favoritesState?.items.find((entry) => entry.id === id);
+  if (!item) {
+    return;
+  }
+
+  try {
+    const autoColor = await resolveAutoBackgroundColor(item);
+    if (autoColor === item.backgroundColor) {
+      return;
+    }
+
+    const nextState = await favoritesService.updateFavorite(id, {
+      backgroundColor: autoColor,
+      backgroundColorSource: "auto"
+    });
+
+    favoritesState = nextState;
+    renderFavorites();
+  } catch {
+    // Auto-accent is best-effort; a canvas/CORS failure keeps the fallback accent
+    // and must never disturb the displayed icon.
+  }
 }
 
 function createFavoritesPanelRow(item, index, itemCount) {
@@ -836,28 +870,14 @@ if (favoritesRoot) {
             }
           );
 
-          const updatedItem = favoritesState.items.find(
-            (item) => item.id === form.dataset.favoriteId
-          );
-
-          if (backgroundColorSource === "auto" && updatedItem) {
-            const autoColor = await resolveAutoBackgroundColor(updatedItem);
-
-            if (autoColor !== updatedItem.backgroundColor) {
-              favoritesState = await favoritesService.updateFavorite(
-                updatedItem.id,
-                {
-                  backgroundColor: autoColor,
-                  backgroundColorSource: "auto"
-                }
-              );
-            }
-          }
-
           finishFavoritesAction(generation, () => {
             favoritesUi = cancelForm(favoritesUi);
             favoritesError = "";
           });
+
+          if (backgroundColorSource === "auto") {
+            void refreshAutoAccent(form.dataset.favoriteId);
+          }
           return;
         }
 
@@ -867,21 +887,14 @@ if (favoritesRoot) {
         });
         const added = favoritesState.items.at(-1);
 
-        if (added) {
-          const autoColor = await resolveAutoBackgroundColor(added);
-
-          if (autoColor !== added.backgroundColor) {
-            favoritesState = await favoritesService.updateFavorite(added.id, {
-              backgroundColor: autoColor,
-              backgroundColorSource: "auto"
-            });
-          }
-        }
-
         finishFavoritesAction(generation, () => {
           favoritesUi = cancelForm(favoritesUi);
           favoritesError = "";
         });
+
+        if (added) {
+          void refreshAutoAccent(added.id);
+        }
       } catch (error) {
         finishFavoritesAction(generation, () => {
           favoritesError = error instanceof Error ? error.message : String(error);
