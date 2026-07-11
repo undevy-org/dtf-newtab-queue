@@ -523,7 +523,16 @@ async function refreshAutoAccent(id) {
 
   try {
     const autoColor = await resolveAutoBackgroundColor(item);
-    if (autoColor === item.backgroundColor) {
+
+    // Re-read the item after the async resolve: the user may have switched it to
+    // manual (or deleted it) while the favicon was being fetched/analyzed. A late
+    // auto write must never clobber a manual color the user just chose.
+    const current = favoritesState?.items.find((entry) => entry.id === id);
+    if (!current || current.backgroundColorSource !== "auto") {
+      return;
+    }
+
+    if (autoColor === current.backgroundColor) {
       return;
     }
 

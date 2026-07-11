@@ -60,4 +60,9 @@ describe("newtab favorites source", () => {
     const code = await source();
     assert.match(code, /data-icon-source|dataset\.iconSource/);
   });
+
+  it("re-checks the item is still auto before a late auto-accent write", async () => {
+    const code = await source();
+    assert.match(code, /backgroundColorSource !== "auto"/);
+  });
 });
