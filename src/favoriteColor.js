@@ -19,6 +19,64 @@ function rgbToHex(red, green, blue) {
   return `#${componentToHex(red)}${componentToHex(green)}${componentToHex(blue)}`;
 }
 
+function rgbToHsl(red, green, blue) {
+  const r = red / 255;
+  const g = green / 255;
+  const b = blue / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+
+  if (max === min) {
+    return { hue: 0, saturation: 0, lightness };
+  }
+
+  const delta = max - min;
+  const saturation =
+    lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+
+  let hue;
+  if (max === r) {
+    hue = (g - b) / delta + (g < b ? 6 : 0);
+  } else if (max === g) {
+    hue = (b - r) / delta + 2;
+  } else {
+    hue = (r - g) / delta + 4;
+  }
+  hue /= 6;
+
+  return { hue, saturation, lightness };
+}
+
+function hueToRgbComponent(p, q, t) {
+  let temp = t;
+  if (temp < 0) temp += 1;
+  if (temp > 1) temp -= 1;
+  if (temp < 1 / 6) return p + (q - p) * 6 * temp;
+  if (temp < 1 / 2) return q;
+  if (temp < 2 / 3) return p + (q - p) * (2 / 3 - temp) * 6;
+  return p;
+}
+
+function hslToRgb(hue, saturation, lightness) {
+  if (saturation === 0) {
+    const value = Math.round(lightness * 255);
+    return { red: value, green: value, blue: value };
+  }
+
+  const q =
+    lightness < 0.5
+      ? lightness * (1 + saturation)
+      : lightness + saturation - lightness * saturation;
+  const p = 2 * lightness - q;
+
+  return {
+    red: Math.round(hueToRgbComponent(p, q, hue + 1 / 3) * 255),
+    green: Math.round(hueToRgbComponent(p, q, hue) * 255),
+    blue: Math.round(hueToRgbComponent(p, q, hue - 1 / 3) * 255)
+  };
+}
+
 function quantizeColor(value) {
   return Math.min(Math.round(value / 8) * 8, 248);
 }
@@ -123,6 +181,30 @@ export function readableTextColor(backgroundColor) {
     0.0722 * relativeLuminanceComponent(blue);
 
   return luminance > 0.55 ? "#111318" : "#ffffff";
+}
+
+const ACCENT_MIN_LIGHTNESS = 0.45;
+const ACCENT_MAX_LIGHTNESS = 0.7;
+
+export function hexToRgbChannels(hex) {
+  const { red, green, blue } = parseHexColor(hex);
+  return `${red}, ${green}, ${blue}`;
+}
+
+export function normalizeAccentLightness(hex) {
+  const { red, green, blue } = parseHexColor(hex);
+  const { hue, saturation, lightness } = rgbToHsl(red, green, blue);
+  const clamped = Math.min(
+    Math.max(lightness, ACCENT_MIN_LIGHTNESS),
+    ACCENT_MAX_LIGHTNESS
+  );
+
+  if (clamped === lightness) {
+    return hex.toLowerCase();
+  }
+
+  const next = hslToRgb(hue, saturation, clamped);
+  return rgbToHex(next.red, next.green, next.blue);
 }
 
 export async function extractImageBackgroundColor(

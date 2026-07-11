@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   extractImageBackgroundColor,
   fallbackColorForDomain,
+  hexToRgbChannels,
+  normalizeAccentLightness,
   pickDominantColorFromPixels,
   readableTextColor
 } from "../src/favoriteColor.js";
@@ -120,5 +122,46 @@ describe("favoriteColor", () => {
         }),
       /createCanvas must be a function/
     );
+  });
+});
+
+describe("hexToRgbChannels", () => {
+  it("returns comma-separated channels for a valid hex", () => {
+    assert.equal(hexToRgbChannels("#69a8ff"), "105, 168, 255");
+  });
+
+  it("is case-insensitive", () => {
+    assert.equal(hexToRgbChannels("#69A8FF"), "105, 168, 255");
+  });
+
+  it("throws on an invalid hex", () => {
+    assert.throws(() => hexToRgbChannels("nope"), /hex color/);
+  });
+});
+
+describe("normalizeAccentLightness", () => {
+  const lightnessOf = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
+  };
+
+  it("lightens a too-dark accent into the visible band", () => {
+    const result = normalizeAccentLightness("#24292f");
+    assert.notEqual(result, "#24292f");
+    assert.ok(lightnessOf(result) >= 0.44, `lightness ${lightnessOf(result)}`);
+    assert.match(result, /^#[0-9a-f]{6}$/);
+  });
+
+  it("darkens a too-light accent into the visible band", () => {
+    const result = normalizeAccentLightness("#f3f5f7");
+    assert.notEqual(result, "#f3f5f7");
+    assert.ok(lightnessOf(result) <= 0.71, `lightness ${lightnessOf(result)}`);
+    assert.match(result, /^#[0-9a-f]{6}$/);
+  });
+
+  it("leaves a mid-lightness accent unchanged", () => {
+    assert.equal(normalizeAccentLightness("#4d9aff"), "#4d9aff");
   });
 });
