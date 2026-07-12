@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A weather panel now renders below the news card: current temperature, UV
+  index (with a WHO-scale level label), today's rain probability, and
+  European Air Quality Index with PM2.5 — all sourced from Open-Meteo's
+  key-less API, so no secret is embedded in this public client-side
+  extension. The city is entered once and stored in `chrome.storage.sync`
+  (`dtfWeatherLocation`), following you across devices the same way
+  favorites do; the reading itself is cached in `chrome.storage.local`
+  (`dtfWeatherCache`) for 30 minutes to avoid refetching on every new tab.
+- `manifest.json` `host_permissions` now also cover `api.open-meteo.com`,
+  `air-quality-api.open-meteo.com`, and `geocoding-api.open-meteo.com` —
+  existing installs will see Chrome's "this extension has new
+  capabilities" prompt on next update.
 - Favorites now sync across devices via `chrome.storage.sync`: they follow
   you to any other Chromium browser signed into the same Google account
   (running this same extension) with sync enabled. Storage is sharded across
