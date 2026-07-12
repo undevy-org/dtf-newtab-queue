@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-07-12
 
 ### Added
 
@@ -20,6 +20,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Favorite tiles are now transparent surfaces with an accent border derived
   from the stored color, lightness-normalized so it stays visible on both
   light and dark backgrounds.
+- Favorite tiles support an optional `tileSize` (`square` / `wide`) field,
+  validated and defaulted end-to-end and rendered as a wider tile in the
+  toolbar when set.
+- Toolbar and settings-panel chrome (gear, move/edit/delete, size toggle)
+  now render through a small locally-vendored Lucide icon set (`src/icons.js`,
+  ISC-licensed) instead of text glyphs.
+
+### Changed
+
+- Extracted shared validation/clone helpers (`src/storeUtils.js`) and
+  favorites constants (`src/favoritesShared.js`), removing duplication
+  between `favoritesStore.js`, `favoritesService.js`, `favoriteIcon.js`, and
+  `queueStore.js`.
+- Favicon URLs are now built from `chrome.runtime.getURL("/_favicon/")`
+  rather than a hand-assembled `chrome-extension://<id>/…` string, and each
+  rendered icon records its source (`favicon` / `custom` / `letter`).
+  Auto-accent color extraction now runs after the tile is shown, so a slow
+  favicon fetch no longer blocks a new tile from appearing.
+- The stored favorite `backgroundColor` is re-interpreted as an accent color
+  at render time; the persisted schema is unchanged (still version 1, source
+  values still `auto` / `manual`).
+- The UI accent switched from blue to a theme-aware black/white.
+- The favorite add/edit form is redesigned into a single labeled,
+  icon-buttoned component.
+- The toolbar now hugs its content width instead of stretching, and the
+  settings panel stacks above it instead of overlaying it.
+- The literal "DTF" eyebrow label is removed from the news card.
 
 ### Fixed
 
@@ -41,21 +68,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The mutation-lock unit test no longer assigns the read-only
   `globalThis.navigator` global, so the suite passes on current Node LTS as
   well as Node 20; `package.json` now pins `engines.node` to `>= 20`.
-
-### Changed
-
-- Extracted shared validation/clone helpers (`src/storeUtils.js`) and
-  favorites constants (`src/favoritesShared.js`), removing duplication
-  between `favoritesStore.js`, `favoritesService.js`, `favoriteIcon.js`, and
-  `queueStore.js`.
-- Favicon URLs are now built from `chrome.runtime.getURL("/_favicon/")`
-  rather than a hand-assembled `chrome-extension://<id>/…` string, and each
-  rendered icon records its source (`favicon` / `custom` / `letter`).
-  Auto-accent color extraction now runs after the tile is shown, so a slow
-  favicon fetch no longer blocks a new tile from appearing.
-- The stored favorite `backgroundColor` is re-interpreted as an accent color
-  at render time; the persisted schema is unchanged (still version 1, source
-  values still `auto` / `manual`).
+- Canvas-based accent-color auto-sampling is now skipped for custom icon
+  URLs.
+- Dropped a dead `.favorite-tile:hover` CSS selector and a dead form-input
+  `min-width` rule; form row labels are now linked to their inputs via
+  `aria-labelledby`.
 
 ## [0.2.0] - 2026-06-19
 
@@ -98,5 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and URL safety.
 - Architecture and privacy documentation under `docs/`.
 
-[Unreleased]: https://github.com/undevy-org/dtf-newtab-queue/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/undevy-org/dtf-newtab-queue/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/undevy-org/dtf-newtab-queue/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/undevy-org/dtf-newtab-queue/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/undevy-org/dtf-newtab-queue/releases/tag/v0.1.0
