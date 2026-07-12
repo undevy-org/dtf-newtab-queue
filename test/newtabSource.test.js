@@ -69,6 +69,12 @@ describe("newtab favorites source", () => {
     assert.match(code, /backgroundColorSource !== "auto"/);
   });
 
+  it("only samples icon pixels for CORS-safe sources, never arbitrary custom icon URLs", async () => {
+    const code = await source();
+    assert.match(code, /if \(!iconModel\.sampleable\) \{\s*return fallback;/);
+    assert.doesNotMatch(code, /iconModel\.type === "image" \? iconModel\.src : ""/);
+  });
+
   it("closes the settings panel on an outside pointerdown", async () => {
     const code = await source();
     assert.match(code, /addEventListener\("pointerdown"/);

@@ -22,7 +22,10 @@ export function getFavoriteIconModel(item, { faviconBaseUrl } = {}) {
     return {
       type: "image",
       src: item.customIconUrl,
-      alt
+      alt,
+      // Arbitrary third-party hosts rarely send CORS headers, so reading
+      // their pixels into a canvas would fail — don't attempt it.
+      sampleable: false
     };
   }
 
@@ -34,7 +37,9 @@ export function getFavoriteIconModel(item, { faviconBaseUrl } = {}) {
         pageUrl: item.url,
         size: FAVICON_SIZE
       }),
-      alt
+      alt,
+      // Served through the extension's own same-origin favicon proxy.
+      sampleable: true
     };
   }
 

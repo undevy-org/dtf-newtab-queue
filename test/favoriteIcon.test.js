@@ -80,6 +80,19 @@ describe("getFavoriteIconModel", () => {
     assert.equal(model.type, "letter");
     assert.equal(model.letter, "D");
   });
+
+  it("marks favicon-mode images as safe to sample for accent color (same-origin proxy)", () => {
+    const model = getFavoriteIconModel(favorite(), { faviconBaseUrl: BASE });
+    assert.equal(model.sampleable, true);
+  });
+
+  it("marks custom-icon images as unsafe to sample — arbitrary hosts rarely send CORS headers", () => {
+    const model = getFavoriteIconModel(
+      favorite({ iconMode: "custom", customIconUrl: "https://x.test/i.png" }),
+      { faviconBaseUrl: BASE }
+    );
+    assert.equal(model.sampleable, false);
+  });
 });
 
 describe("getFavoriteLetter", () => {

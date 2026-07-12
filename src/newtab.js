@@ -509,14 +509,13 @@ function createBrowserCanvas(width, height) {
 async function resolveAutoBackgroundColor(item) {
   const fallback = fallbackColorForDomain(item.domain);
   const iconModel = getFavoriteIconModel(item, { faviconBaseUrl });
-  const imageUrl = iconModel.type === "image" ? iconModel.src : "";
 
-  if (!imageUrl) {
+  if (!iconModel.sampleable) {
     return fallback;
   }
 
   return (
-    (await extractImageBackgroundColor(imageUrl, {
+    (await extractImageBackgroundColor(iconModel.src, {
       loadImage: loadBrowserImage,
       createCanvas: createBrowserCanvas
     })) ?? fallback
