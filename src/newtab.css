@@ -509,6 +509,53 @@ body {
   display: block;
 }
 
+.title-wrap--milestone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 26px;
+  min-height: calc(1.22em * 3);
+  text-align: center;
+}
+
+.milestone-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.milestone-title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.22;
+  font-weight: 700;
+}
+
+.icon--spin {
+  animation: milestone-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes milestone-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon--spin {
+    animation: none;
+  }
+}
+
 .meta,
 .status {
   margin: 0;
@@ -663,6 +710,20 @@ body {
   }
 
   .title {
+    font-size: 22px;
+  }
+
+  .title-wrap--milestone {
+    gap: 8px;
+    font-size: 22px;
+  }
+
+  .milestone-badge {
+    width: 44px;
+    height: 44px;
+  }
+
+  .milestone-title {
     font-size: 22px;
   }
 

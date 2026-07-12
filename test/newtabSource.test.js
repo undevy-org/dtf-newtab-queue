@@ -231,4 +231,64 @@ describe("newtab favorites source", () => {
       /\.meta,\s*\n\s*\.status\s*\{[^}]*display: -webkit-box;[^}]*-webkit-line-clamp: 2;[^}]*-webkit-box-orient: vertical;[^}]*overflow: hidden;[^}]*\}/s
     );
   });
+
+  it("gives the three milestone states (loading, fork, archive-ended) a centered icon badge instead of an empty 3-line title reservation", async () => {
+    const code = await source();
+    assert.match(
+      code,
+      /function createMilestoneTitleNode\(title, iconName, \{ spin = false \} = \{\}\)/
+    );
+    assert.match(code, /createNode\("div", "title-wrap title-wrap--milestone"\)/);
+    assert.match(code, /createNode\("div", "milestone-badge"\)/);
+    assert.match(code, /createNode\("h1", "milestone-title", title\)/);
+    assert.match(
+      code,
+      /createIconNode\(iconName, \{ size: 24, className: spin \? "icon--spin" : "" \}\)/
+    );
+    assert.match(code, /icon = null,\s*iconSpin = false/);
+    assert.match(
+      code,
+      /fragment\.appendChild\(createMilestoneTitleNode\(title, icon, \{ spin: iconSpin \}\)\);/
+    );
+    assert.match(code, /icon: "loaderCircle",\s*iconSpin: true/);
+    assert.match(code, /icon: "checkCheck",/);
+    assert.match(code, /icon: "check",/);
+
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.match(
+      css,
+      /\.title-wrap--milestone\s*\{[^}]*font-size: 26px;[^}]*min-height: calc\(1\.22em \* 3\);[^}]*text-align: center;[^}]*\}/s
+    );
+    assert.match(
+      css,
+      /\.milestone-badge\s*\{[^}]*border-radius: 50%;[^}]*background: var\(--bg\);[^}]*\}/s
+    );
+    assert.match(
+      css,
+      /\.milestone-title\s*\{[^}]*font-size: 26px;[^}]*font-weight: 700;[^}]*\}/s
+    );
+
+    const mobileBlock = css.slice(css.indexOf("@media (max-width: 600px)"));
+    assert.match(mobileBlock, /\.title-wrap--milestone\s*\{[^}]*font-size: 22px;[^}]*\}/s);
+    assert.match(
+      mobileBlock,
+      /\.milestone-badge\s*\{[^}]*width: 44px;[^}]*height: 44px;[^}]*\}/s
+    );
+  });
+
+  it("spins only the loading icon, and freezes it under prefers-reduced-motion", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.match(
+      css,
+      /@keyframes milestone-spin\s*\{\s*to\s*\{\s*transform: rotate\(360deg\);/
+    );
+    assert.match(
+      css,
+      /\.icon--spin\s*\{[^}]*animation: milestone-spin 0\.9s linear infinite;[^}]*\}/s
+    );
+    assert.match(
+      css,
+      /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.icon--spin\s*\{\s*animation: none;/
+    );
+  });
 });

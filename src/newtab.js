@@ -116,6 +116,17 @@ function createTitleNode(title) {
   return { titleWrap, titleNode };
 }
 
+function createMilestoneTitleNode(title, iconName, { spin = false } = {}) {
+  const titleWrap = createNode("div", "title-wrap title-wrap--milestone");
+  const badge = createNode("div", "milestone-badge");
+  badge.appendChild(
+    createIconNode(iconName, { size: 24, className: spin ? "icon--spin" : "" })
+  );
+  const titleNode = createNode("h1", "milestone-title", title);
+  titleWrap.append(badge, titleNode);
+  return titleWrap;
+}
+
 function attachTruncatedTitlePopover(titleNode, fullTitle) {
   if (titleNode.scrollHeight <= titleNode.clientHeight + 1) {
     return;
@@ -128,15 +139,29 @@ function attachTruncatedTitlePopover(titleNode, fullTitle) {
   titleNode.after(popover);
 }
 
-function renderShell({ title, meta = "", status = null, error = null, actions = [] }) {
+function renderShell({
+  title,
+  meta = "",
+  status = null,
+  error = null,
+  actions = [],
+  icon = null,
+  iconSpin = false
+}) {
   if (!app) {
     return;
   }
 
   const fragment = document.createDocumentFragment();
-  const { titleWrap, titleNode } = createTitleNode(title);
+  let titleNode = null;
 
-  fragment.appendChild(titleWrap);
+  if (icon) {
+    fragment.appendChild(createMilestoneTitleNode(title, icon, { spin: iconSpin }));
+  } else {
+    const created = createTitleNode(title);
+    fragment.appendChild(created.titleWrap);
+    titleNode = created.titleNode;
+  }
 
   if (meta) {
     fragment.appendChild(createNode("p", "meta", meta));
@@ -162,13 +187,18 @@ function renderShell({ title, meta = "", status = null, error = null, actions = 
 
   app.replaceChildren(fragment);
   app.setAttribute("aria-busy", String(busy));
-  attachTruncatedTitlePopover(titleNode, title);
+
+  if (titleNode) {
+    attachTruncatedTitlePopover(titleNode, title);
+  }
 }
 
 function renderLoading(message = "Подключаюсь к очереди.") {
   renderShell({
     title: "Загружаю новость...",
-    status: message
+    status: message,
+    icon: "loaderCircle",
+    iconSpin: true
   });
 }
 
@@ -194,6 +224,7 @@ function renderArchiveEnded(error = null, busyMessage = "") {
     meta: "Новых карточек нет. Можно проверить ещё раз позже.",
     status: busy ? busyMessage : null,
     error,
+    icon: "checkCheck",
     actions: [
       createButton("Проверить новые", "retry", { primary: true }),
       createButton("Сбросить", "reset")
@@ -207,6 +238,7 @@ function renderFork(error = null, busyMessage = "") {
     meta: "Проверьте новые сверху или загляните глубже в архив.",
     status: busy ? busyMessage : null,
     error,
+    icon: "check",
     actions: [
       createButton("Проверить новые", "retry", { primary: true }),
       createButton("Глубже в архив", "archive"),
