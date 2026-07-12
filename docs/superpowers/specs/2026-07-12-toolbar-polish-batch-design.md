@@ -256,7 +256,9 @@ invented:
   form fields, button dataset actions) need updating for the merged form,
   new rows, and icon nodes.
 - A small smoke test for `src/icons.js` (each exported icon name resolves to
-  a non-empty string containing `<svg`).
+  a non-empty string of SVG path/circle markup — the `<svg>` wrapper is
+  assembled at runtime by `createIconNode`, so `ICON_PATHS` holds only the
+  inner `<path>`/`<circle>` markup).
 - Manual browser matrix (this repo's established pattern for anything
   touching favicon/color/layout): empty state, few tiles vs many (scroll
   cutover), square vs wide tiles, add vs edit form, light vs dark theme,

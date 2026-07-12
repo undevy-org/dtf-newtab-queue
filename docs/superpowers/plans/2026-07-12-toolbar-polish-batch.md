@@ -472,7 +472,7 @@ git commit -m "feat: add a locally-vendored Lucide icon module"
 
 - [ ] **Step 1: Write the failing tests**
 
-In `test/newtabSource.test.js`, add these three tests at the end of the `describe("newtab favorites source", ...)` block (after the last existing `it`, currently ending at line 82):
+In `test/newtabSource.test.js`, add these three tests at the end of the `describe("newtab favorites source", ...)` block (after the last existing `it` — `"consumes --favorite-accent-rgb via legacy rgba()..."`, currently ending at line 88 — and before the block's closing `});` at line 89):
 
 ```js
 
@@ -920,7 +920,7 @@ function createFavoritesGear() {
 
 - [ ] **Step 6: Replace the panel row's reorder/edit glyphs with icons**
 
-In `createFavoritesPanelRow` (currently lines 564-601), change the `left`, `right`, and `edit` button creation:
+In `createFavoritesPanelRow` (currently lines 563-600), change the `left`, `right`, and `edit` button creation:
 
 ```js
   const left = createNode("button", "icon-button");
@@ -1067,7 +1067,7 @@ git commit -m "feat: render tile size from data and swap toolbar/panel glyphs fo
 - Modify: `test/newtabSource.test.js`
 
 **Interfaces:**
-- Consumes: `createIconNode` (Task 2), `tileSize` field (Task 1).
+- Consumes: `createIconNode` and its `import { createIconNode } from "./icons.js";` line (Tasks 2 and 6), `tileSize` field (Task 1), and the `--primary-contrast` CSS variable (Task 4) used by the segmented-control `:checked` styling. In the linear task order (4 and 6 precede 7) every commit stays green; the extra deps only matter if the tasks are reordered or Task 7 is cherry-picked in isolation.
 - Produces: `createFavoriteForm(item)` (item is `null` for add, a favorite object for edit) replacing `createAddForm()`/`createEditForm(item)`. `createSegmentedControl(name, options, selectedValue)`, `createFormRow(labelText, control)`, and `createIconButton(className, text, iconName)` as shared helpers. `readFavoriteFormPayload(data)` builds the service payload shared by both add and edit submits.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1288,7 +1288,7 @@ Note the color input's `<input type="color">` toggling between inert (auto) and 
 
 - [ ] **Step 4: Update the two call sites and the two other panel buttons**
 
-In `renderFavoritesPanel` (currently lines 621-680), change the add-button creation:
+In `renderFavoritesPanel` (currently lines 620-679), change the add-button creation:
 
 ```js
   const addButton = createIconButton("button button--primary", "Добавить ссылку", "plus");
@@ -1324,7 +1324,7 @@ Change the "Готово" button creation:
 
 - [ ] **Step 5: Update the submit handler to use the shared payload builder**
 
-In the `favoritesPanelRoot?.addEventListener("submit", ...)` handler (currently lines 872-947), replace the body from `const data = new FormData(form);` through the `try`/`catch` with:
+In the `favoritesPanelRoot?.addEventListener("submit", ...)` handler (currently lines 871-946), replace the body from `const data = new FormData(form);` through the `try`/`catch` with:
 
 ```js
       const data = new FormData(form);
