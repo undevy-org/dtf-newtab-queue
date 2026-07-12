@@ -250,9 +250,18 @@ describe("newtab favorites source", () => {
       code,
       /fragment\.appendChild\(createMilestoneTitleNode\(title, icon, \{ spin: iconSpin \}\)\);/
     );
-    assert.match(code, /icon: "loaderCircle",\s*iconSpin: true/);
-    assert.match(code, /icon: "checkCheck",/);
-    assert.match(code, /icon: "check",/);
+    assert.match(
+      code,
+      /function renderLoading\([^)]*\)\s*\{[^}]*icon: "loaderCircle",\s*iconSpin: true[^}]*\}/
+    );
+    assert.match(
+      code,
+      /function renderArchiveEnded\([^)]*\)\s*\{[^}]*icon: "checkCheck",[^}]*\}/
+    );
+    assert.match(
+      code,
+      /function renderFork\([^)]*\)\s*\{[^}]*icon: "check",[^}]*\}/
+    );
 
     const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
     assert.match(
