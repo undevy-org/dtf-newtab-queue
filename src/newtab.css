@@ -462,6 +462,8 @@ body {
   border-radius: 8px;
   background: var(--panel);
   box-shadow: 0 18px 50px rgb(0 0 0 / 10%);
+  height: 282px;
+  align-content: start;
 }
 
 .title {
@@ -470,6 +472,11 @@ body {
   line-height: 1.22;
   letter-spacing: 0;
   overflow-wrap: anywhere;
+  min-height: calc(1.22em * 3);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .meta,
@@ -563,6 +570,7 @@ body {
 
   .panel {
     padding: 22px;
+    height: 356px;
   }
 
   .title {

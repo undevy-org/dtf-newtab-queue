@@ -189,4 +189,20 @@ describe("newtab favorites source", () => {
     const code = await source();
     assert.match(code, /if \(items\.length > 0\) \{\s*const list = createNode\("div", "favorites-grid"\);/);
   });
+
+  it("locks the news card to one constant height, with the title always reserving exactly 3 lines", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+
+    assert.match(
+      css,
+      /\.title\s*\{[^}]*min-height: calc\(1\.22em \* 3\);[^}]*-webkit-line-clamp: 3;[^}]*-webkit-box-orient: vertical;[^}]*overflow: hidden;[^}]*\}/s
+    );
+    assert.match(
+      css,
+      /\.panel\s*\{[^}]*height: 282px;[^}]*align-content: start;[^}]*\}/s
+    );
+
+    const mobileBlock = css.slice(css.indexOf("@media (max-width: 600px)"));
+    assert.match(mobileBlock, /\.panel\s*\{[^}]*height: 356px;[^}]*\}/s);
+  });
 });
