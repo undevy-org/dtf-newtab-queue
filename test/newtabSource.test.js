@@ -66,6 +66,12 @@ describe("newtab favorites source", () => {
     assert.match(code, /backgroundColorSource !== "auto"/);
   });
 
+  it("closes the settings panel on an outside pointerdown", async () => {
+    const code = await source();
+    assert.match(code, /addEventListener\("pointerdown"/);
+    assert.match(code, /\.contains\(event\.target\)/);
+  });
+
   it("consumes --favorite-accent-rgb via legacy rgba() so comma channels stay valid CSS", async () => {
     const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
     assert.doesNotMatch(css, /rgb\(var\(--favorite-accent-rgb\)\s*\//);

@@ -847,6 +847,28 @@ if (favoritesRoot) {
     }
   });
 
+  document.addEventListener("pointerdown", (event) => {
+    if (!isSettingsOpen(favoritesUi) || favoritesBusy) {
+      return;
+    }
+
+    if (!(event.target instanceof Node)) {
+      return;
+    }
+
+    if (
+      favoritesPanelRoot?.contains(event.target) ||
+      favoritesRoot?.contains(event.target)
+    ) {
+      return;
+    }
+
+    favoritesUi = closeSettings(favoritesUi);
+    favoritesError = "";
+    pendingGearFocus = true;
+    renderFavorites();
+  });
+
   favoritesPanelRoot?.addEventListener("submit", (event) => {
     const form = event.target;
 

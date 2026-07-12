@@ -79,7 +79,10 @@ body {
   flex: 1;
   gap: 9px;
   min-width: 0;
+  padding-block: 16px;
+  margin-block: -16px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 
