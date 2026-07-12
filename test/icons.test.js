@@ -10,6 +10,8 @@ const ICON_NAMES = [
   "pencil",
   "plus",
   "check",
+  "checkCheck",
+  "loaderCircle",
   "x",
   "trash2"
 ];
@@ -32,5 +34,14 @@ describe("icons", () => {
       "utf8"
     );
     assert.doesNotMatch(packageJson, /lucide/i);
+  });
+
+  it("supports an optional extra className for one-off modifiers like a spinning icon", async () => {
+    const code = await readFile(new URL("../src/icons.js", import.meta.url), "utf8");
+    assert.match(
+      code,
+      /export function createIconNode\(name, \{ size = 18, className = "" \} = \{\}\)/
+    );
+    assert.match(code, /wrapper\.className = className \? `icon \$\{className\}` : "icon";/);
   });
 });
