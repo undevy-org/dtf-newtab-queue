@@ -3,6 +3,7 @@
   "name": "DTF Queue New Tab",
   "version": "0.3.0",
   "description": "Shows a manual one-card queue of DTF news on the new tab page.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3IXv90qNeCk2e99iUwRvasvpTA8GKH//rRWNQDQvHrm5Kg/LCEAW9IT5O9h1+2MFpKf925CrP6WF4E0YkqMpwPBBJOToAXDYnLwsNMIGIFVqFM5I6xvkd0+v2oNcNVjA2uQYYukbDMc4c5clNmGRPS4qCaieK79sX64ExJNWT075tcyV3HXsw0jz6CqPYLjpjPlH9Tihip7ZHYgSYkGBxfuTYkErpXryjUkZO6KSinu6RbefWxtBaATNlZp4twxY+LbLLkrv62yt2tDk4qHKzKDwE5byxNI3L+voGPlf4Ll1zAvR8wdbrB9icF6LF33qoJUh74uDjjFOU65ns1qFVQIDAQAB",
   "permissions": ["storage", "favicon"],
   "host_permissions": ["https://api.dtf.ru/*"],
   "chrome_url_overrides": {

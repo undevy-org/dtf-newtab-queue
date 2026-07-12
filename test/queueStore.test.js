@@ -413,3 +413,35 @@ describe("queueStore", () => {
     assert.equal(reloaded.events[0].details.nested.count, 1);
   });
 });
+
+describe("createMemoryStorageArea quota simulation", () => {
+  it("has no quota limit by default", async () => {
+    const storageArea = createMemoryStorageArea();
+    await storageArea.set({ big: "x".repeat(20000) });
+    assert.equal((await storageArea.get("big")).big, "x".repeat(20000));
+  });
+
+  it("rejects a set() call whose value exceeds quotaBytesPerItem", async () => {
+    const storageArea = createMemoryStorageArea({}, { quotaBytesPerItem: 10 });
+
+    await assert.rejects(() => storageArea.set({ small: "0123456789ABCDEF" }));
+    assert.deepEqual(await storageArea.get("small"), {});
+  });
+
+  it("rejects a set() call that would push total bytes over quotaBytes", async () => {
+    const storageArea = createMemoryStorageArea({ a: "12345" }, { quotaBytes: 10 });
+
+    await assert.rejects(() => storageArea.set({ b: "1234567890" }));
+    assert.deepEqual(await storageArea.get("b"), {});
+  });
+
+  it("accepts a set() call that fits within both quotas", async () => {
+    const storageArea = createMemoryStorageArea(
+      {},
+      { quotaBytesPerItem: 100, quotaBytes: 1000 }
+    );
+
+    await storageArea.set({ ok: "fits fine" });
+    assert.deepEqual(await storageArea.get("ok"), { ok: "fits fine" });
+  });
+});

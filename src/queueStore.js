@@ -162,7 +162,14 @@ export function createQueueStore(
   };
 }
 
-export function createMemoryStorageArea(initialValues = {}) {
+function byteLength(value) {
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+export function createMemoryStorageArea(
+  initialValues = {},
+  { quotaBytesPerItem = Infinity, quotaBytes = Infinity } = {}
+) {
   const values = cloneValue(initialValues);
 
   return {
@@ -194,6 +201,21 @@ export function createMemoryStorageArea(initialValues = {}) {
     },
 
     async set(nextValues) {
+      for (const [itemKey, value] of Object.entries(nextValues)) {
+        if (byteLength(value) > quotaBytesPerItem) {
+          throw new Error(`QUOTA_BYTES_PER_ITEM quota exceeded for key "${itemKey}"`);
+        }
+      }
+
+      const merged = { ...values, ...nextValues };
+      const totalBytes = Object.entries(merged).reduce(
+        (sum, [itemKey, value]) => sum + byteLength(itemKey) + byteLength(value),
+        0
+      );
+      if (totalBytes > quotaBytes) {
+        throw new Error("QUOTA_BYTES quota exceeded");
+      }
+
       Object.assign(values, cloneValue(nextValues));
     },
 

@@ -17,4 +17,11 @@ describe("manifest", () => {
     assert.deepEqual(manifest.permissions, ["storage", "favicon"]);
     assert.deepEqual(manifest.host_permissions, ["https://api.dtf.ru/*"]);
   });
+
+  it("pins a fixed key so every unpacked install gets the same extension id", async () => {
+    const manifest = await readManifest();
+
+    assert.equal(typeof manifest.key, "string");
+    assert.ok(manifest.key.length > 0);
+  });
 });

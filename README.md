@@ -52,14 +52,20 @@ you left off.
 
 The manifest requests only:
 
-- `storage` to persist the queue and saved favorites locally;
+- `storage` to persist the queue locally and saved favorites via Chrome Sync;
 - `favicon` to display site favicons in the favorites bar;
 - host access to `https://api.dtf.ru/*` to read the news feed.
 
-Favorites are stored in `chrome.storage.local` under the current browser profile.
-They are not Chrome bookmarks and are not synced in this version.
+Queue reading-progress is stored in `chrome.storage.local`, scoped to the
+current browser profile. Favorites are stored in `chrome.storage.sync`, so
+they follow you to any other Chromium browser signed into the same Google
+account with sync enabled and running this same extension — that's Chrome's
+own built-in sync, not a project-run service. They are not Chrome bookmarks.
+Two separate "Load unpacked" installs only share sync data if they load the
+same `manifest.json` (this repo pins a fixed `key` so that's automatic on
+`git pull`).
 
-API requests include DTF credentials so the extension can use the browser's signed-in DTF session. Queue and favorites data never leaves `chrome.storage.local`. See [Privacy](docs/privacy.md) for details.
+API requests include DTF credentials so the extension can use the browser's signed-in DTF session. Queue state never leaves `chrome.storage.local`; favorites never leave Chrome's own sync infrastructure. See [Privacy](docs/privacy.md) for details.
 Requests are sent with `credentials: "include"`, so they carry your existing DTF
 session cookies to `api.dtf.ru`; the extension never reads or copies those cookies.
 

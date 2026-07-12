@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Favorites now sync across devices via `chrome.storage.sync`: they follow
+  you to any other Chromium browser signed into the same Google account
+  (running this same extension) with sync enabled. Storage is sharded across
+  a `dtfFavoritesMeta` order key plus one `dtfFavorite:<id>` key per favorite,
+  since `chrome.storage.sync` caps a single key at 8KB — too small for a full
+  200-item list in one blob.
+- A one-time migration moves any favorites already saved in
+  `chrome.storage.local` (the pre-sync format) into the new sync-backed
+  storage the first time the extension loads after upgrading, without
+  touching the legacy data until the sync write has succeeded.
+- `manifest.json` now pins a fixed `key`, so two separate "Load unpacked"
+  installs of this repo (e.g. on two different machines) share the same
+  extension id — a prerequisite for `chrome.storage.sync` to actually
+  propagate favorites between them.
+
+### Changed
+
+- Queue reading-progress remains on `chrome.storage.local` only; it is not
+  part of this sync.
+
 ## [0.3.0] - 2026-07-12
 
 ### Added

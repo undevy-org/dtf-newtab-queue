@@ -18,7 +18,8 @@ are loaded by the new tab page so they can be displayed as tile icons.
 
 ## Data Stored
 
-The extension stores the following data in `chrome.storage.local`:
+The extension stores queue reading-progress in `chrome.storage.local`, scoped
+to this browser profile only:
 
 - the current queue item;
 - queued items from fetched batches;
@@ -26,16 +27,23 @@ The extension stores the following data in `chrome.storage.local`:
 - the DTF pagination cursor;
 - timestamps and a bounded diagnostic event log.
 
-The extension also stores user-created favorite links:
+The extension stores user-created favorite links in `chrome.storage.sync`:
 
 - saved URLs;
 - labels;
 - domains;
 - icon mode and optional custom image URLs;
-- tile background colors;
+- tile background colors and tile size;
 - creation and update timestamps.
 
-This state remains on the local browser profile. There is no synchronization service, project backend, telemetry, or analytics endpoint.
+`chrome.storage.sync` is Chrome's own built-in sync feature, not a project-run
+service: if the browser is signed into a Google account with sync enabled,
+favorites follow the user to their other signed-in Chromium browsers running
+this same extension. There is no synchronization service, project backend,
+telemetry, or analytics endpoint operated by this extension — sync, when it
+happens, is entirely Chrome's own infrastructure. If sync is off or
+unavailable, favorites still work locally, just without cross-device
+propagation.
 
 ## Background Activity
 

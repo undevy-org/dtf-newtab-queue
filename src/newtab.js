@@ -19,7 +19,7 @@ import {
   startEdit
 } from "./favoritesUiState.js";
 import { createFavoritesService } from "./favoritesService.js";
-import { createFavoritesStore } from "./favoritesStore.js";
+import { createFavoritesStore, migrateLegacyFavorites } from "./favoritesStore.js";
 import { fetchNews } from "./dtfApi.js";
 import { createQueueService } from "./queueService.js";
 import { createInitialState, createQueueStore } from "./queueStore.js";
@@ -268,40 +268,43 @@ function createUnavailableService(message) {
 }
 
 const chromeApi = globalThis.chrome;
-const storageArea = chromeApi?.storage?.local;
+const localStorageArea = chromeApi?.storage?.local;
+const syncStorageArea = chromeApi?.storage?.sync;
 const faviconBaseUrl =
   typeof chromeApi?.runtime?.getURL === "function"
     ? chromeApi.runtime.getURL("/_favicon/")
     : "";
 
-const favoritesService =
-  storageArea &&
-  typeof storageArea.get === "function" &&
-  typeof storageArea.set === "function"
-    ? createFavoritesService({
-        store: createFavoritesStore(storageArea),
-        defaultBackgroundColor: fallbackColorForDomain
-      })
-    : null;
+function hasStorageArea(area) {
+  return area && typeof area.get === "function" && typeof area.set === "function";
+}
 
-const service =
-  storageArea &&
-  typeof storageArea.get === "function" &&
-  typeof storageArea.set === "function"
-    ? createQueueService({
-        store: createQueueStore(storageArea),
-        fetchNews,
-        openUrl(url) {
-          const tabs = globalThis.chrome?.tabs;
+const favoritesStore = hasStorageArea(syncStorageArea)
+  ? createFavoritesStore(syncStorageArea)
+  : null;
 
-          if (!tabs || typeof tabs.create !== "function") {
-            throw new Error("Недоступен chrome.tabs.create");
-          }
+const favoritesService = favoritesStore
+  ? createFavoritesService({
+      store: favoritesStore,
+      defaultBackgroundColor: fallbackColorForDomain
+    })
+  : null;
 
-          return tabs.create({ url });
+const service = hasStorageArea(localStorageArea)
+  ? createQueueService({
+      store: createQueueStore(localStorageArea),
+      fetchNews,
+      openUrl(url) {
+        const tabs = globalThis.chrome?.tabs;
+
+        if (!tabs || typeof tabs.create !== "function") {
+          throw new Error("Недоступен chrome.tabs.create");
         }
-      })
-    : createUnavailableService("Недоступны API Chrome.");
+
+        return tabs.create({ url });
+      }
+    })
+  : createUnavailableService("Недоступны API Chrome.");
 
 let currentResult = null;
 let busy = false;
@@ -773,6 +776,14 @@ if (favoritesRoot) {
       favoritesError = "Недоступны API Chrome для избранного.";
       renderFavorites();
       return;
+    }
+
+    if (hasStorageArea(localStorageArea)) {
+      try {
+        await migrateLegacyFavorites(localStorageArea, favoritesStore);
+      } catch (error) {
+        favoritesError = error instanceof Error ? error.message : String(error);
+      }
     }
 
     try {

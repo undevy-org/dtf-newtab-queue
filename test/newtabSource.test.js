@@ -170,4 +170,18 @@ describe("newtab favorites source", () => {
     assert.match(code, /labelSpan\.id = `favorite-form-row-label-\$\{formRowIdSeq\+\+\}`;/);
     assert.match(code, /setAttribute\("aria-labelledby", labelSpan\.id\)/);
   });
+
+  it("stores favorites in chrome.storage.sync while the queue stays on chrome.storage.local", async () => {
+    const code = await source();
+    assert.match(code, /const localStorageArea = chromeApi\?\.storage\?\.local;/);
+    assert.match(code, /const syncStorageArea = chromeApi\?\.storage\?\.sync;/);
+    assert.match(code, /createFavoritesStore\(syncStorageArea\)/);
+    assert.match(code, /createQueueStore\(localStorageArea\)/);
+  });
+
+  it("migrates legacy local favorites into sync storage before the first favorites read", async () => {
+    const code = await source();
+    assert.match(code, /from "\.\/favoritesStore\.js"/);
+    assert.match(code, /migrateLegacyFavorites\(/);
+  });
 });
