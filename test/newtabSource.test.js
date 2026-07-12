@@ -119,4 +119,18 @@ describe("newtab favorites source", () => {
     assert.doesNotMatch(css, /\.favorites-grid\s*\{[^}]*--favorite-tile-height/s);
     assert.match(css, /\.favorites-panel\s*\{[^}]*z-index: 40;/s);
   });
+
+  it("renders tile size from data and reuses the shared icon module for the gear and panel controls", async () => {
+    const code = await source();
+    assert.match(code, /from "\.\/icons\.js"/);
+    assert.match(code, /dataset\.tileSize = item\.tileSize === "wide" \? "wide" : "square";/);
+    assert.match(code, /createIconNode\("settings"/);
+    assert.match(code, /createIconNode\("chevronLeft"\)/);
+    assert.match(code, /createIconNode\("chevronRight"\)/);
+    assert.match(code, /createIconNode\("pencil"\)/);
+    assert.doesNotMatch(code, /"⚙"/);
+    assert.doesNotMatch(code, /"‹"/);
+    assert.doesNotMatch(code, /"›"/);
+    assert.doesNotMatch(code, /"✎"/);
+  });
 });

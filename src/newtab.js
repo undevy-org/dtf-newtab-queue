@@ -5,6 +5,7 @@ import {
   normalizeAccentLightness
 } from "./favoriteColor.js";
 import { getFavoriteIconModel, getFavoriteLetter } from "./favoriteIcon.js";
+import { createIconNode } from "./icons.js";
 import {
   cancelForm,
   closeSettings,
@@ -342,6 +343,7 @@ function createFavoriteTile(item) {
   button.type = "button";
   button.dataset.favoriteAction = "open";
   button.dataset.favoriteId = item.id;
+  button.dataset.tileSize = item.tileSize === "wide" ? "wide" : "square";
   button.title = item.label;
   button.setAttribute("aria-label", `Открыть ${item.label}`);
   button.style.setProperty(
@@ -357,7 +359,7 @@ function createFavoriteTile(item) {
 }
 
 function createFavoritesGear() {
-  const gear = createNode("button", "favorite-settings", "⚙");
+  const gear = createNode("button", "favorite-settings");
   gear.type = "button";
   gear.dataset.favoriteAction = "open-settings";
   gear.setAttribute("aria-label", "Настроить быстрые ссылки");
@@ -365,6 +367,7 @@ function createFavoritesGear() {
   gear.setAttribute("aria-controls", "favorites-panel");
   gear.disabled = favoritesBusy;
   gear.setAttribute("aria-disabled", String(favoritesBusy));
+  gear.appendChild(createIconNode("settings", { size: 20 }));
   return gear;
 }
 
@@ -572,26 +575,29 @@ function createFavoritesPanelRow(item, index, itemCount) {
   const controls = createNode("div", "favorites-panel__controls");
   const disabled = favoritesBusy || isFormOpen(favoritesUi);
 
-  const left = createNode("button", "icon-button", "‹");
+  const left = createNode("button", "icon-button");
   left.type = "button";
   left.dataset.favoriteAction = "move-left";
   left.dataset.favoriteId = item.id;
   left.setAttribute("aria-label", `Сдвинуть ${item.label} влево`);
   left.disabled = disabled || index === 0;
+  left.appendChild(createIconNode("chevronLeft"));
 
-  const right = createNode("button", "icon-button", "›");
+  const right = createNode("button", "icon-button");
   right.type = "button";
   right.dataset.favoriteAction = "move-right";
   right.dataset.favoriteId = item.id;
   right.setAttribute("aria-label", `Сдвинуть ${item.label} вправо`);
   right.disabled = disabled || index === itemCount - 1;
+  right.appendChild(createIconNode("chevronRight"));
 
-  const edit = createNode("button", "icon-button", "✎");
+  const edit = createNode("button", "icon-button");
   edit.type = "button";
   edit.dataset.favoriteAction = "edit";
   edit.dataset.favoriteId = item.id;
   edit.setAttribute("aria-label", `Редактировать ${item.label}`);
   edit.disabled = disabled;
+  edit.appendChild(createIconNode("pencil"));
 
   controls.append(left, right, edit);
   row.append(info, controls);
