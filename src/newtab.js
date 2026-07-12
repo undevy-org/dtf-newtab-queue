@@ -390,10 +390,20 @@ function createSegmentedControl(name, options, selectedValue) {
   return group;
 }
 
+let formRowIdSeq = 0;
+
 function createFormRow(labelText, control) {
   const row = createNode("div", "favorite-form__row");
-  row.appendChild(createNode("span", "favorite-form__row-label", labelText));
-  row.appendChild(control);
+  const labelSpan = createNode("span", "favorite-form__row-label", labelText);
+  labelSpan.id = `favorite-form-row-label-${formRowIdSeq++}`;
+  row.append(labelSpan, control);
+
+  const labelTarget =
+    control.tagName === "INPUT" || control.getAttribute("role") === "radiogroup"
+      ? control
+      : control.querySelector('input, [role="radiogroup"]');
+  labelTarget?.setAttribute("aria-labelledby", labelSpan.id);
+
   return row;
 }
 

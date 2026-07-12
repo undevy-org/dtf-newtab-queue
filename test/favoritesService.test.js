@@ -252,6 +252,16 @@ describe("favoritesService", () => {
     );
   });
 
+  it("rejects an unsupported tileSize on update", async () => {
+    const { service } = await createHarness();
+    await service.addFavorite({ url: "example.com" });
+
+    await assert.rejects(
+      () => service.updateFavorite("fav-1", { tileSize: "huge" }),
+      /Choose a supported tile size/
+    );
+  });
+
   it("deletes favorites", async () => {
     const { service, store } = await createHarness();
     await service.addFavorite({ url: "one.example.com" });

@@ -159,4 +159,15 @@ describe("newtab favorites source", () => {
     assert.match(code, /createIconButton\("button", "Готово", "check"\)/);
     assert.match(code, /createIconButton\("button button--danger", "Удалить", "trash2"\)/);
   });
+
+  it("drops the dead min-width already overridden for every .favorite-input use site", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.doesNotMatch(css, /min-width: min\(320px, 100%\);/);
+  });
+
+  it("links each form row's label to its control for assistive tech", async () => {
+    const code = await source();
+    assert.match(code, /labelSpan\.id = `favorite-form-row-label-\$\{formRowIdSeq\+\+\}`;/);
+    assert.match(code, /setAttribute\("aria-labelledby", labelSpan\.id\)/);
+  });
 });
