@@ -5,10 +5,11 @@
   --text: #111318;
   --muted: #5c6672;
   --border: #d8dee6;
-  --primary: #1473e6;
-  --primary-hover: #0f63c7;
+  --primary: #111318;
+  --primary-hover: #2a2d33;
+  --primary-contrast: #ffffff;
   --danger: #b42318;
-  --focus: rgb(20 115 230 / 24%);
+  --focus: rgb(0 0 0 / 24%);
   --toolbar-h: 72px;
 }
 
@@ -19,10 +20,11 @@
     --text: #f4f6f8;
     --muted: #a8b0ba;
     --border: #343b45;
-    --primary: #4d9aff;
-    --primary-hover: #6aabff;
+    --primary: #f4f6f8;
+    --primary-hover: #d9dce0;
+    --primary-contrast: #14171c;
     --danger: #ff8a80;
-    --focus: rgb(77 154 255 / 28%);
+    --focus: rgb(255 255 255 / 28%);
   }
 }
 
@@ -390,7 +392,7 @@ body {
 .button--primary {
   border-color: var(--primary);
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-contrast);
 }
 
 .button--primary:hover:not(:disabled) {

@@ -102,4 +102,13 @@ describe("newtab favorites source", () => {
     const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
     assert.doesNotMatch(css, /\.eyebrow/);
   });
+
+  it("uses a black/white accent instead of blue, with a theme-aware button contrast color", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.match(css, /--primary: #111318;/);
+    assert.match(css, /--primary-contrast: #ffffff;/);
+    assert.doesNotMatch(css, /--primary: #1473e6/);
+    assert.doesNotMatch(css, /--primary: #4d9aff/);
+    assert.match(css, /\.button--primary\s*\{[^}]*color: var\(--primary-contrast\);/s);
+  });
 });
