@@ -287,7 +287,6 @@ body {
   font: inherit;
 }
 
-.favorite-tile:hover,
 .favorite-settings:hover {
   border-color: var(--primary);
 }

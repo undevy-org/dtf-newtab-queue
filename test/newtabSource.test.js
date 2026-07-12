@@ -39,7 +39,9 @@ describe("newtab favorites source", () => {
 
   it("lets favorite URL fields reach service normalization without native URL validation", async () => {
     const code = await source();
-    assert.match(code, /\.type = "text";\s+\w+\.inputMode = "url";/);
+    assert.match(code, /input\.type = "text";\s+input\.inputMode = "url";/);
+    assert.match(code, /\burl\.type = "text";\s+url\.inputMode = "url";/);
+    assert.match(code, /customIconUrl\.type = "text";\s+customIconUrl\.inputMode = "url";/);
   });
 
   it("blocks favorites actions while a request is in flight", async () => {
@@ -48,6 +50,7 @@ describe("newtab favorites source", () => {
     assert.match(code, /let favoritesGeneration = 0;/);
     assert.match(code, /function startFavoritesAction\(\)/);
     assert.match(code, /function finishFavoritesAction\(generation, applyResult\)/);
+    assert.match(code, /\|\| favoritesBusy\)\s*\{\s*return;/);
   });
 
   it("bootstraps the favorites bar independently of the queue widget's #app guard", async () => {

@@ -71,10 +71,27 @@ describe("getFavoriteIconModel", () => {
     assert.equal(model.type, "letter");
     assert.equal(model.letter, "D");
   });
+
+  it("falls back to a letter in custom mode when the custom URL is null", () => {
+    const model = getFavoriteIconModel(
+      favorite({ iconMode: "custom", customIconUrl: null }),
+      { faviconBaseUrl: BASE }
+    );
+    assert.equal(model.type, "letter");
+    assert.equal(model.letter, "D");
+  });
 });
 
 describe("getFavoriteLetter", () => {
   it("uppercases the first character of the label", () => {
     assert.equal(getFavoriteLetter(favorite({ label: "notion" })), "N");
+  });
+
+  it("falls back to the domain's first letter when the label is blank", () => {
+    assert.equal(getFavoriteLetter(favorite({ label: "   ", domain: "example.com" })), "E");
+  });
+
+  it("returns \"?\" when both label and domain are empty", () => {
+    assert.equal(getFavoriteLetter(favorite({ label: "", domain: "" })), "?");
   });
 });
