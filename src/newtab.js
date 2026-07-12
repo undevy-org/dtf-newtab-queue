@@ -663,13 +663,15 @@ function renderFavoritesToolbar() {
 
   const fragment = document.createDocumentFragment();
   const items = favoritesState?.items ?? [];
-  const list = createNode("div", "favorites-grid");
 
-  for (const item of items) {
-    list.appendChild(createFavoriteTile(item));
+  if (items.length > 0) {
+    const list = createNode("div", "favorites-grid");
+    for (const item of items) {
+      list.appendChild(createFavoriteTile(item));
+    }
+    fragment.appendChild(list);
   }
 
-  fragment.appendChild(list);
   fragment.appendChild(createFavoritesGear());
   favoritesRoot.replaceChildren(fragment);
 }

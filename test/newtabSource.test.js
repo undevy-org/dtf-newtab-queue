@@ -184,4 +184,9 @@ describe("newtab favorites source", () => {
     assert.match(code, /from "\.\/favoritesStore\.js"/);
     assert.match(code, /migrateLegacyFavorites\(/);
   });
+
+  it("skips the empty favorites-grid box when there are no favorites, so the gear sits flush against the bar padding", async () => {
+    const code = await source();
+    assert.match(code, /if \(items\.length > 0\) \{\s*const list = createNode\("div", "favorites-grid"\);/);
+  });
 });
