@@ -98,14 +98,35 @@ function buildMeta(item, backlogCount) {
   return parts.join(" · ");
 }
 
+function createTitleNode(title) {
+  const titleWrap = createNode("div", "title-wrap");
+  const titleNode = createNode("h1", "title", title);
+  titleNode.setAttribute("aria-label", title);
+  titleWrap.appendChild(titleNode);
+  return { titleWrap, titleNode };
+}
+
+function attachTruncatedTitlePopover(titleNode, fullTitle) {
+  if (titleNode.scrollHeight <= titleNode.clientHeight + 1) {
+    return;
+  }
+
+  titleNode.tabIndex = 0;
+
+  const popover = createNode("div", "title-popover", fullTitle);
+  popover.setAttribute("aria-hidden", "true");
+  titleNode.after(popover);
+}
+
 function renderShell({ title, meta = "", status = null, error = null, actions = [] }) {
   if (!app) {
     return;
   }
 
   const fragment = document.createDocumentFragment();
+  const { titleWrap, titleNode } = createTitleNode(title);
 
-  fragment.appendChild(createNode("h1", "title", title));
+  fragment.appendChild(titleWrap);
 
   if (meta) {
     fragment.appendChild(createNode("p", "meta", meta));
@@ -131,6 +152,7 @@ function renderShell({ title, meta = "", status = null, error = null, actions = 
 
   app.replaceChildren(fragment);
   app.setAttribute("aria-busy", String(busy));
+  attachTruncatedTitlePopover(titleNode, title);
 }
 
 function renderLoading(message = "Подключаюсь к очереди.") {

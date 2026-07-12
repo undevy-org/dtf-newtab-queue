@@ -206,6 +206,23 @@ describe("newtab favorites source", () => {
     assert.match(mobileBlock, /\.panel\s*\{[^}]*height: 356px;[^}]*\}/s);
   });
 
+  it("shows a themed popover with the full title only when the 3-line clamp actually truncated it", async () => {
+    const code = await source();
+    assert.match(code, /function createTitleNode\(title\)/);
+    assert.match(code, /function attachTruncatedTitlePopover\(titleNode, fullTitle\)/);
+    assert.match(code, /titleNode\.scrollHeight <= titleNode\.clientHeight \+ 1/);
+    assert.match(code, /titleNode\.tabIndex = 0;/);
+    assert.match(code, /titleNode\.setAttribute\("aria-label", title\)/);
+    assert.match(code, /titleNode\.after\(popover\)/);
+
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.match(css, /\.title-wrap\s*\{[^}]*position: relative;[^}]*\}/s);
+    assert.match(
+      css,
+      /\.title:hover \+ \.title-popover,\s*\.title:focus-visible \+ \.title-popover\s*\{[^}]*display: block;[^}]*\}/s
+    );
+  });
+
   it("caps meta and status text at 2 lines to bound unbounded error messages", async () => {
     const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
 
