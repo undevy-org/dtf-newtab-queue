@@ -86,4 +86,20 @@ describe("newtab favorites source", () => {
     assert.doesNotMatch(css, /rgb\(var\(--favorite-accent-rgb\)\s*\//);
     assert.match(css, /rgba\(var\(--favorite-accent-rgb\),/);
   });
+
+  it("does not render a literal DTF label in the news card shell", async () => {
+    const code = await source();
+    assert.doesNotMatch(code, /"eyebrow"/);
+    assert.doesNotMatch(code, /\["DTF"\]/);
+  });
+
+  it("does not flash a DTF eyebrow in the pre-render fallback shell", async () => {
+    const html = await readFile(new URL("../src/newtab.html", import.meta.url), "utf8");
+    assert.doesNotMatch(html, /<p class="eyebrow">/);
+  });
+
+  it("drops the now-unused eyebrow style once the DTF label is removed", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.doesNotMatch(css, /\.eyebrow/);
+  });
 });

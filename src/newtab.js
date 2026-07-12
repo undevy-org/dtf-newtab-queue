@@ -83,7 +83,7 @@ function createStatus(text, { error = false, live = "polite" } = {}) {
 }
 
 function buildMeta(item, backlogCount) {
-  const parts = ["DTF"];
+  const parts = [];
 
   const date = formatDate(item.date);
   if (date) {
@@ -104,7 +104,6 @@ function renderShell({ title, meta = "", status = null, error = null, actions = 
 
   const fragment = document.createDocumentFragment();
 
-  fragment.appendChild(createNode("p", "eyebrow", "DTF"));
   fragment.appendChild(createNode("h1", "title", title));
 
   if (meta) {
