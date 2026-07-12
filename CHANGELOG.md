@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The favorites bar is now a viewport-pinned quick-links toolbar: a fixed
+  glass bar at the top of the new tab that stays put regardless of the news
+  card's height, with a single horizontally-scrolling row of tiles bounded
+  against the 200-item cap.
+- Favorite management is consolidated into a gear-opened settings panel, the
+  only management entry point. The inline `+` add tile is gone; add, edit,
+  delete, and reorder all live in the panel, which closes on `Готово`,
+  `Escape`, or a click outside it and returns focus to the gear.
+- Favorite tiles are now transparent surfaces with an accent border derived
+  from the stored color, lightness-normalized so it stays visible on both
+  light and dark backgrounds.
+
 ### Fixed
 
 - Favorites add/update/delete/move no longer race each other: mutations are
@@ -24,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of a generic "Invalid favorites state" error.
 - The favorites bar bootstrap no longer depends on the queue widget's `#app`
   element being present.
+- The mutation-lock unit test no longer assigns the read-only
+  `globalThis.navigator` global, so the suite passes on current Node LTS as
+  well as Node 20; `package.json` now pins `engines.node` to `>= 20`.
 
 ### Changed
 
@@ -31,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   favorites constants (`src/favoritesShared.js`), removing duplication
   between `favoritesStore.js`, `favoritesService.js`, `favoriteIcon.js`, and
   `queueStore.js`.
+- Favicon URLs are now built from `chrome.runtime.getURL("/_favicon/")`
+  rather than a hand-assembled `chrome-extension://<id>/…` string, and each
+  rendered icon records its source (`favicon` / `custom` / `letter`).
+  Auto-accent color extraction now runs after the tile is shown, so a slow
+  favicon fetch no longer blocks a new tile from appearing.
+- The stored favorite `backgroundColor` is re-interpreted as an accent color
+  at render time; the persisted schema is unchanged (still version 1, source
+  values still `auto` / `manual`).
 
 ## [0.2.0] - 2026-06-19
 

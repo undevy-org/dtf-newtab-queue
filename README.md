@@ -6,8 +6,8 @@ A small Manifest V3 extension for Chromium-based browsers that turns the new tab
 
 ## Features
 
-- Shows a personal favorites bar at the top of the new tab page.
-- Lets you add, edit, delete, and reorder saved links directly on the new tab page.
+- Shows a personal quick-links toolbar pinned to the top of the new tab page, with a single horizontally-scrolling row of tiles.
+- Manages links — add, edit, delete, and reorder — from a settings panel opened with the gear button (closes on Done, Escape, or a click outside).
 - Opens saved favorites in the current tab.
 - Uses site favicons with letter and custom-image fallbacks.
 - Shows exactly one DTF headline at a time.
