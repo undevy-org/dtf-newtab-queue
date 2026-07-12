@@ -57,7 +57,7 @@ and this plan file.
 - Produces: a go/no-go gate. Do not start Task 1 until this task's review
   comes back clean.
 
-- [ ] **Step 1: Dispatch a fresh, independent review agent**
+- [x] **Step 1: Dispatch a fresh, independent review agent**
 
 Use the `Agent` tool (a general-purpose subagent with no prior context from
 this implementation session) with this exact prompt:
@@ -100,7 +100,7 @@ Report a numbered list of concrete issues, each with the task number and
 the exact text that needs to change — or state plainly that you found none.
 ```
 
-- [ ] **Step 2: Act on the findings**
+- [x] **Step 2: Act on the findings**
 
 If the agent reports zero issues, mark this task complete and proceed to
 Task 1.
@@ -221,6 +221,21 @@ describe("fetchWeather", () => {
       (error) => error instanceof WeatherApiError
     );
   });
+
+  it("throws WeatherApiError when the response body is not valid JSON", async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        throw new SyntaxError("Unexpected token in JSON");
+      }
+    });
+
+    await assert.rejects(
+      () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
+      (error) => error instanceof WeatherApiError
+    );
+  });
 });
 
 describe("fetchAirQuality", () => {
@@ -255,6 +270,21 @@ describe("fetchAirQuality", () => {
 
   it("throws WeatherApiError when expected fields are missing", async () => {
     const fetchImpl = async () => response({ current: {} });
+
+    await assert.rejects(
+      () => fetchAirQuality({ latitude: 41.72, longitude: 44.78, fetchImpl }),
+      (error) => error instanceof WeatherApiError
+    );
+  });
+
+  it("throws WeatherApiError when the response body is not valid JSON", async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        throw new SyntaxError("Unexpected token in JSON");
+      }
+    });
 
     await assert.rejects(
       () => fetchAirQuality({ latitude: 41.72, longitude: 44.78, fetchImpl }),
@@ -320,6 +350,21 @@ describe("geocodeCity", () => {
     await assert.rejects(
       () => geocodeCity("Тбилиси", { fetchImpl }),
       (error) => error instanceof WeatherApiError && error.message.includes("429")
+    );
+  });
+
+  it("throws WeatherApiError when the response body is not valid JSON", async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        throw new SyntaxError("Unexpected token in JSON");
+      }
+    });
+
+    await assert.rejects(
+      () => geocodeCity("Тбилиси", { fetchImpl }),
+      (error) => error instanceof WeatherApiError
     );
   });
 });
@@ -424,6 +469,14 @@ function assertFiniteField(value, fieldName, context) {
   }
 }
 
+async function parseJson(response, url, label) {
+  try {
+    return await response.json();
+  } catch {
+    throw new WeatherApiError(`${label} response was not valid JSON`, { url });
+  }
+}
+
 export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis.fetch }) {
   assertCoordinate(latitude, "latitude");
   assertCoordinate(longitude, "longitude");
@@ -444,7 +497,7 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
     );
   }
 
-  const body = await response.json();
+  const body = await parseJson(response, url.toString(), "Open-Meteo forecast");
   const temperature = body?.current?.temperature_2m;
   const uvIndexMax = body?.daily?.uv_index_max?.[0];
   const precipitationProbabilityMax = body?.daily?.precipitation_probability_max?.[0];
@@ -476,7 +529,7 @@ export async function fetchAirQuality({ latitude, longitude, fetchImpl = globalT
     );
   }
 
-  const body = await response.json();
+  const body = await parseJson(response, url.toString(), "Open-Meteo air quality");
   const europeanAqi = body?.current?.european_aqi;
   const pm2_5 = body?.current?.pm2_5;
 
@@ -505,7 +558,7 @@ export async function geocodeCity(name, { fetchImpl = globalThis.fetch } = {}) {
     );
   }
 
-  const body = await response.json();
+  const body = await parseJson(response, url.toString(), "Open-Meteo geocoding");
   const result = Array.isArray(body?.results) ? body.results[0] : null;
 
   if (
@@ -848,8 +901,13 @@ git commit -m "feat: add weatherStore.js — sync location + local cache persist
 
 **Interfaces:**
 - Consumes:
-  - From Task 1: `fetchWeather`, `fetchAirQuality`, `geocodeCity`,
-    `WeatherApiError` (all from `./weatherApi.js`).
+  - From Task 1: `fetchWeather`, `fetchAirQuality`, `geocodeCity` (all from
+    `./weatherApi.js`), consumed directly by `weatherService.js`.
+    `WeatherApiError` from the same module is consumed only by
+    `test/weatherService.test.js` to build realistic mocks —
+    `weatherService.js` itself never imports or catches `WeatherApiError`
+    specifically; it handles all errors generically via
+    `error instanceof Error`.
   - From Task 2: `createWeatherLocationStore`, `createWeatherCacheStore`
     (test-only, to build a real store over `createMemoryStorageArea()`).
 - Produces, for later tasks:
@@ -1255,8 +1313,10 @@ sequence is the one that keeps every "Consumes" satisfied by an earlier
 - Consumes: nothing.
 - Produces, for Task 6:
   - `createInitialWeatherUiState()` → `{ editing: boolean }`.
-  - `startEditingCity(state)` → same shape, `editing: true`.
-  - `stopEditingCity(state)` → same shape, `editing: false`.
+  - `startEditingCity()` → `{ editing: true }` (ignores any argument — there
+    is no `idle`/`editing` distinction to preserve, unlike
+    `favoritesUiState.js`).
+  - `stopEditingCity()` → `{ editing: false }` (ignores any argument).
   - `isEditingCity(state)` → `boolean`.
 
 - [ ] **Step 1: Write the failing test file**
@@ -1355,8 +1415,9 @@ git commit -m "feat: add weatherUiState.js — city-form open/closed state"
   - Existing `newtab.js` helpers, unchanged:
     `createNode(tagName, className, textContent)`,
     `createStatus(text, { error, live })`,
-    `createIconButton(className, text, iconName)`, `createIconNode(name)`
-    (from `./icons.js`), `hasStorageArea(area)`, `localStorageArea`,
+    `createIconButton(className, text, iconName)`,
+    `createIconNode(name, { size } = {})` (from `./icons.js`, default size
+    used here), `hasStorageArea(area)`, `localStorageArea`,
     `syncStorageArea`.
 - Produces: a live `#weather` section, independent of `#app` and
   `#favorites`; no other task depends on this one.
@@ -1427,7 +1488,10 @@ describe("newtab weather source", () => {
   it("renders the weather panel below the news card in newtab.html", async () => {
     const markup = await html();
     assert.match(markup, /<section class="panel" id="app">/);
-    assert.match(markup, /<section class="panel weather-panel" id="weather">/);
+    assert.match(
+      markup,
+      /<section class="panel weather-panel" id="weather" aria-live="polite">/
+    );
     const appIndex = markup.indexOf('id="app"');
     const weatherIndex = markup.indexOf('id="weather"');
     assert.ok(appIndex > -1 && weatherIndex > -1 && appIndex < weatherIndex);
@@ -1464,7 +1528,7 @@ Replace it with:
       <section class="panel" id="app">
         <h1 class="title">Загружаю новость...</h1>
       </section>
-      <section class="panel weather-panel" id="weather">
+      <section class="panel weather-panel" id="weather" aria-live="polite">
         <h2 class="title">Загружаю погоду...</h2>
       </section>
     </main>
@@ -1648,6 +1712,16 @@ if (weatherRoot) {
     return metric;
   }
 
+  function weatherAqiMetricNode(europeanAqi, pm2_5) {
+    const metric = createNode("div", "weather-metric");
+    metric.appendChild(
+      createNode("span", "weather-metric__value", europeanAqiCategory(europeanAqi))
+    );
+    metric.appendChild(createNode("span", "weather-metric__sub", `PM2.5 ${pm2_5}`));
+    metric.appendChild(createNode("span", "weather-metric__label", "Воздух"));
+    return metric;
+  }
+
   function renderWeatherMetrics(data) {
     const metrics = createNode("div", "weather-metrics");
     metrics.append(
@@ -1657,10 +1731,7 @@ if (weatherRoot) {
         `${data.uvIndexMax} · ${uvIndexLevel(data.uvIndexMax)}`
       ),
       weatherMetricNode("Дождь сегодня", `${Math.round(data.precipitationProbabilityMax)}%`),
-      weatherMetricNode(
-        "Воздух",
-        `${europeanAqiCategory(data.europeanAqi)} · PM2.5 ${data.pm2_5}`
-      )
+      weatherAqiMetricNode(data.europeanAqi, data.pm2_5)
     );
     return metrics;
   }
@@ -1712,6 +1783,10 @@ if (weatherRoot) {
     heading.appendChild(editButton);
 
     fragment.appendChild(heading);
+
+    if (location.country) {
+      fragment.appendChild(createNode("p", "meta", location.country));
+    }
 
     if (status === "ready" || status === "stale") {
       fragment.appendChild(renderWeatherMetrics(data));
@@ -1850,9 +1925,11 @@ git commit -m "feat: wire the weather panel into newtab.html/newtab.js"
 
 **Interfaces:**
 - Consumes: class names introduced in Task 6 —
-  `.weather-panel` (unstyled hook, inherits `.panel`), `.weather-heading`,
-  `.weather-metrics`, `.weather-metric`, `.weather-metric__value`,
-  `.weather-metric__label`, `.weather-form__row`.
+  `.weather-panel` (inherits `.panel`, but overrides its fixed `height`
+  since the weather content's natural height differs from the news card's),
+  `.weather-heading`, `.weather-metrics`, `.weather-metric`,
+  `.weather-metric__value`, `.weather-metric__sub`, `.weather-metric__label`,
+  `.weather-form`, `.weather-form__row`.
 - Produces: nothing consumed by later tasks; this is the last styling pass.
 
 - [ ] **Step 1: Add the weather rules**
@@ -1872,6 +1949,10 @@ Replace it with:
 ```css
 .status--error {
   color: var(--danger);
+}
+
+.weather-panel {
+  height: auto;
 }
 
 .weather-heading {
@@ -1900,9 +1981,19 @@ Replace it with:
   font-weight: 700;
 }
 
+.weather-metric__sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .weather-metric__label {
   font-size: 12px;
   color: var(--muted);
+}
+
+.weather-form {
+  display: flex;
+  flex-direction: column;
 }
 
 .weather-form__row {
@@ -1947,6 +2038,10 @@ Replace it with:
   .button,
   .favorite-input {
     width: 100%;
+  }
+
+  .weather-panel {
+    height: auto;
   }
 
   .weather-metrics {
