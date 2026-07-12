@@ -65,4 +65,10 @@ describe("newtab favorites source", () => {
     const code = await source();
     assert.match(code, /backgroundColorSource !== "auto"/);
   });
+
+  it("consumes --favorite-accent-rgb via legacy rgba() so comma channels stay valid CSS", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.doesNotMatch(css, /rgb\(var\(--favorite-accent-rgb\)\s*\//);
+    assert.match(css, /rgba\(var\(--favorite-accent-rgb\),/);
+  });
 });
