@@ -4,6 +4,7 @@ import {
   BACKGROUND_COLOR_SOURCES,
   HEX_COLOR_VALIDATION_PATTERN,
   ICON_MODES,
+  TILE_SIZES,
   trimString
 } from "./favoritesShared.js";
 
@@ -106,6 +107,14 @@ function normalizeBackgroundColorSource(backgroundColorSource) {
   return backgroundColorSource;
 }
 
+function normalizeTileSize(tileSize) {
+  if (!TILE_SIZES.has(tileSize)) {
+    throw new Error("Choose a supported tile size");
+  }
+
+  return tileSize;
+}
+
 function deriveBackgroundColorSource(input, fallbackSource) {
   const source =
     input.backgroundColorSource ??
@@ -182,6 +191,7 @@ export function createFavoritesService({
             defaultBackgroundColor
           ),
           backgroundColorSource: deriveBackgroundColorSource(payload, "auto"),
+          tileSize: normalizeTileSize(payload.tileSize ?? "square"),
           createdAt,
           updatedAt: createdAt
         };
@@ -243,6 +253,10 @@ export function createFavoritesService({
             payload,
             "auto"
           );
+        }
+
+        if (Object.hasOwn(payload, "tileSize")) {
+          nextItem.tileSize = normalizeTileSize(payload.tileSize);
         }
 
         nextItem.updatedAt = updatedAt;

@@ -147,6 +147,7 @@ describe("favoritesService", () => {
         customIconUrl: null,
         backgroundColor: "#24292f",
         backgroundColorSource: "auto",
+        tileSize: "square",
         createdAt: NOW,
         updatedAt: NOW
       }
@@ -188,6 +189,7 @@ describe("favoritesService", () => {
       customIconUrl: "https://cdn.example.com/icon.png",
       backgroundColor: "#abcdef",
       backgroundColorSource: "manual",
+      tileSize: "square",
       createdAt: NOW,
       updatedAt: NOW
     });
@@ -218,6 +220,36 @@ describe("favoritesService", () => {
 
     assert.equal(state.items[0].backgroundColor, "#ffcc00");
     assert.equal(state.items[0].backgroundColorSource, "manual");
+  });
+
+  it("defaults tileSize to square when adding, and allows choosing wide", async () => {
+    const { service } = await createHarness();
+
+    const defaulted = await service.addFavorite({ url: "example.com" });
+    assert.equal(defaulted.items[0].tileSize, "square");
+
+    const wide = await service.addFavorite({
+      url: "wide.example.com",
+      tileSize: "wide"
+    });
+    assert.equal(wide.items[1].tileSize, "wide");
+  });
+
+  it("updates tileSize", async () => {
+    const { service } = await createHarness();
+    await service.addFavorite({ url: "example.com" });
+
+    const state = await service.updateFavorite("fav-1", { tileSize: "wide" });
+    assert.equal(state.items[0].tileSize, "wide");
+  });
+
+  it("rejects an unsupported tileSize", async () => {
+    const { service } = await createHarness();
+
+    await assert.rejects(
+      () => service.addFavorite({ url: "example.com", tileSize: "huge" }),
+      /Choose a supported tile size/
+    );
   });
 
   it("deletes favorites", async () => {
