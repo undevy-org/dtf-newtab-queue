@@ -15,7 +15,12 @@ describe("manifest", () => {
     const manifest = await readManifest();
 
     assert.deepEqual(manifest.permissions, ["storage", "favicon"]);
-    assert.deepEqual(manifest.host_permissions, ["https://api.dtf.ru/*"]);
+    assert.deepEqual(manifest.host_permissions, [
+      "https://api.dtf.ru/*",
+      "https://api.open-meteo.com/*",
+      "https://air-quality-api.open-meteo.com/*",
+      "https://geocoding-api.open-meteo.com/*"
+    ]);
   });
 
   it("pins a fixed key so every unpacked install gets the same extension id", async () => {
