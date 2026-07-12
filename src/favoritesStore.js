@@ -8,7 +8,8 @@ import {
 import {
   BACKGROUND_COLOR_SOURCES,
   HEX_COLOR_VALIDATION_PATTERN,
-  ICON_MODES
+  ICON_MODES,
+  TILE_SIZES
 } from "./favoritesShared.js";
 
 export const FAVORITES_STORAGE_KEY = "dtfFavorites";
@@ -42,6 +43,10 @@ function isCustomIconUrl(value) {
   return value === null || isHttpUrl(value);
 }
 
+function isOptionalTileSize(value) {
+  return !Object.hasOwn(value, "tileSize") || TILE_SIZES.has(value.tileSize);
+}
+
 function isFavoriteItem(value) {
   const requiredFields = [
     "id",
@@ -65,6 +70,7 @@ function isFavoriteItem(value) {
     isNonEmptyString(value.domain) &&
     ICON_MODES.has(value.iconMode) &&
     isCustomIconUrl(value.customIconUrl) &&
+    isOptionalTileSize(value) &&
     typeof value.backgroundColor === "string" &&
     HEX_COLOR_VALIDATION_PATTERN.test(value.backgroundColor) &&
     BACKGROUND_COLOR_SOURCES.has(value.backgroundColorSource) &&

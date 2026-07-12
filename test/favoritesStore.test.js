@@ -71,6 +71,32 @@ describe("favoritesStore", () => {
     assert.equal(isFavoritesState({ ...valid, items: [favorite({ backgroundColorSource: "remote" })] }), false);
   });
 
+  it("validates an explicit tileSize when present, but tolerates its absence", () => {
+    const base = {
+      version: 1,
+      items: [favorite()],
+      createdAt: NOW,
+      updatedAt: NOW
+    };
+
+    assert.equal(isFavoritesState(base), true, "absent tileSize (legacy item)");
+    assert.equal(
+      isFavoritesState({ ...base, items: [favorite({ tileSize: "square" })] }),
+      true,
+      "square"
+    );
+    assert.equal(
+      isFavoritesState({ ...base, items: [favorite({ tileSize: "wide" })] }),
+      true,
+      "wide"
+    );
+    assert.equal(
+      isFavoritesState({ ...base, items: [favorite({ tileSize: "huge" })] }),
+      false,
+      "unknown tileSize"
+    );
+  });
+
   it("rejects states above the item cap", () => {
     const state = {
       version: 1,
