@@ -23,10 +23,20 @@ import { createFavoritesStore, migrateLegacyFavorites } from "./favoritesStore.j
 import { fetchNews } from "./dtfApi.js";
 import { createQueueService } from "./queueService.js";
 import { createInitialState, createQueueStore } from "./queueStore.js";
+import { europeanAqiCategory, uvIndexLevel } from "./weatherApi.js";
+import { createWeatherService } from "./weatherService.js";
+import { createWeatherCacheStore, createWeatherLocationStore } from "./weatherStore.js";
+import {
+  createInitialWeatherUiState,
+  isEditingCity,
+  startEditingCity,
+  stopEditingCity
+} from "./weatherUiState.js";
 
 const app = document.querySelector("#app");
 const favoritesRoot = document.querySelector("#favorites");
 const favoritesPanelRoot = document.querySelector("#favorites-panel");
+const weatherRoot = document.querySelector("#weather");
 const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
   day: "2-digit",
   month: "short",
@@ -328,6 +338,20 @@ const service = hasStorageArea(localStorageArea)
     })
   : createUnavailableService("Недоступны API Chrome.");
 
+const weatherLocationStore = hasStorageArea(syncStorageArea)
+  ? createWeatherLocationStore(syncStorageArea)
+  : null;
+const weatherCacheStore = hasStorageArea(localStorageArea)
+  ? createWeatherCacheStore(localStorageArea)
+  : null;
+const weatherService =
+  weatherLocationStore && weatherCacheStore
+    ? createWeatherService({
+        locationStore: weatherLocationStore,
+        cacheStore: weatherCacheStore
+      })
+    : null;
+
 let currentResult = null;
 let busy = false;
 let busyMessage = "";
@@ -337,6 +361,10 @@ let favoritesError = "";
 let favoritesBusy = false;
 let favoritesGeneration = 0;
 let pendingGearFocus = false;
+let weatherResult = null;
+let weatherUi = createInitialWeatherUiState();
+let weatherFormError = "";
+let weatherBusy = false;
 
 function createFavoriteLetterNode(item, source) {
   const span = createNode("span", "favorite-letter", getFavoriteLetter(item));
@@ -1020,6 +1048,219 @@ if (favoritesRoot) {
         finishFavoritesAction(generation, () => {
           favoritesError = error instanceof Error ? error.message : String(error);
         });
+      }
+    })();
+  });
+}
+
+if (weatherRoot) {
+  function createWeatherForm(location) {
+    const form = createNode("form", "weather-form");
+    form.dataset.weatherForm = "city";
+
+    const input = createNode("input", "favorite-input");
+    input.name = "city";
+    input.type = "text";
+    input.placeholder = "Город";
+    input.value = location ? location.name : "";
+    input.required = true;
+    input.autocomplete = "off";
+    input.disabled = weatherBusy;
+
+    const row = createNode("div", "weather-form__row");
+    row.appendChild(input);
+
+    const save = createIconButton("button button--primary", "Сохранить", "check");
+    save.type = "submit";
+    save.disabled = weatherBusy;
+    row.appendChild(save);
+
+    if (location) {
+      const cancel = createIconButton("button", "Отмена", "x");
+      cancel.type = "button";
+      cancel.dataset.weatherAction = "cancel-edit-city";
+      cancel.disabled = weatherBusy;
+      row.appendChild(cancel);
+    }
+
+    form.appendChild(row);
+    return form;
+  }
+
+  function weatherMetricNode(label, value) {
+    const metric = createNode("div", "weather-metric");
+    metric.appendChild(createNode("span", "weather-metric__value", value));
+    metric.appendChild(createNode("span", "weather-metric__label", label));
+    return metric;
+  }
+
+  function weatherAqiMetricNode(europeanAqi, pm2_5) {
+    const metric = createNode("div", "weather-metric");
+    metric.appendChild(
+      createNode("span", "weather-metric__value", europeanAqiCategory(europeanAqi))
+    );
+    metric.appendChild(createNode("span", "weather-metric__sub", `PM2.5 ${pm2_5}`));
+    metric.appendChild(createNode("span", "weather-metric__label", "Воздух"));
+    return metric;
+  }
+
+  function renderWeatherMetrics(data) {
+    const metrics = createNode("div", "weather-metrics");
+    metrics.append(
+      weatherMetricNode("Температура", `${Math.round(data.temperature)}°`),
+      weatherMetricNode(
+        "УФ-индекс",
+        `${data.uvIndexMax} · ${uvIndexLevel(data.uvIndexMax)}`
+      ),
+      weatherMetricNode("Дождь сегодня", `${Math.round(data.precipitationProbabilityMax)}%`),
+      weatherAqiMetricNode(data.europeanAqi, data.pm2_5)
+    );
+    return metrics;
+  }
+
+  function renderWeather() {
+    const fragment = document.createDocumentFragment();
+
+    if (!weatherService) {
+      fragment.appendChild(createNode("h2", "title", "Погода"));
+      fragment.appendChild(
+        createStatus("Недоступны API Chrome для погоды.", {
+          error: true,
+          live: "assertive"
+        })
+      );
+      weatherRoot.replaceChildren(fragment);
+      return;
+    }
+
+    const location = weatherResult?.location ?? null;
+    const showForm = !location || isEditingCity(weatherUi);
+
+    if (showForm) {
+      fragment.appendChild(
+        createNode("h2", "title", location ? location.name : "Укажите город")
+      );
+      fragment.appendChild(createWeatherForm(location));
+
+      if (weatherFormError) {
+        fragment.appendChild(
+          createStatus(weatherFormError, { error: true, live: "assertive" })
+        );
+      }
+
+      weatherRoot.replaceChildren(fragment);
+      return;
+    }
+
+    const { status, data, error } = weatherResult;
+
+    const heading = createNode("div", "weather-heading");
+    heading.appendChild(createNode("h2", "title", location.name));
+
+    const editButton = createNode("button", "icon-button");
+    editButton.type = "button";
+    editButton.dataset.weatherAction = "edit-city";
+    editButton.setAttribute("aria-label", "Изменить город");
+    editButton.appendChild(createIconNode("pencil"));
+    heading.appendChild(editButton);
+
+    fragment.appendChild(heading);
+
+    if (location.country) {
+      fragment.appendChild(createNode("p", "meta", location.country));
+    }
+
+    if (status === "ready" || status === "stale") {
+      fragment.appendChild(renderWeatherMetrics(data));
+    }
+
+    if (status === "stale") {
+      fragment.appendChild(createStatus("Не удалось обновить"));
+    }
+
+    if (status === "error") {
+      fragment.appendChild(createStatus(error, { error: true, live: "assertive" }));
+    }
+
+    weatherRoot.replaceChildren(fragment);
+  }
+
+  void (async () => {
+    if (!weatherService) {
+      renderWeather();
+      return;
+    }
+
+    try {
+      weatherResult = await weatherService.initialize();
+    } catch (error) {
+      weatherResult = {
+        status: "error",
+        location: null,
+        data: null,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+
+    renderWeather();
+  })();
+
+  weatherRoot.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const target = event.target.closest("[data-weather-action]");
+
+    if (!(target instanceof HTMLElement) || weatherBusy) {
+      return;
+    }
+
+    const action = target.dataset.weatherAction;
+
+    if (action === "edit-city") {
+      weatherUi = startEditingCity(weatherUi);
+      weatherFormError = "";
+      renderWeather();
+    } else if (action === "cancel-edit-city") {
+      weatherUi = stopEditingCity(weatherUi);
+      weatherFormError = "";
+      renderWeather();
+    }
+  });
+
+  weatherRoot.addEventListener("submit", (event) => {
+    const form = event.target;
+
+    if (!(form instanceof HTMLFormElement) || form.dataset.weatherForm !== "city") {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (weatherBusy || !weatherService) {
+      return;
+    }
+
+    const cityName = String(new FormData(form).get("city") ?? "").trim();
+
+    if (!cityName) {
+      return;
+    }
+
+    weatherBusy = true;
+    renderWeather();
+
+    void (async () => {
+      try {
+        weatherResult = await weatherService.setCity(cityName);
+        weatherUi = stopEditingCity(weatherUi);
+        weatherFormError = "";
+      } catch (error) {
+        weatherFormError = error instanceof Error ? error.message : String(error);
+      } finally {
+        weatherBusy = false;
+        renderWeather();
       }
     })();
   });
