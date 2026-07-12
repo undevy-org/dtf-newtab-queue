@@ -111,4 +111,12 @@ describe("newtab favorites source", () => {
     assert.doesNotMatch(css, /--primary: #4d9aff/);
     assert.match(css, /\.button--primary\s*\{[^}]*color: var\(--primary-contrast\);/s);
   });
+
+  it("lets the toolbar hug its content instead of a fixed width, and keeps the settings panel above it", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.match(css, /\.favorites-bar\s*\{[^}]*width: fit-content;/s);
+    assert.match(css, /\.favorites-bar\s*\{[^}]*--favorite-tile-height: 52px;/s);
+    assert.doesNotMatch(css, /\.favorites-grid\s*\{[^}]*--favorite-tile-height/s);
+    assert.match(css, /\.favorites-panel\s*\{[^}]*z-index: 40;/s);
+  });
 });
