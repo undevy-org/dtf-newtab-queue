@@ -371,124 +371,163 @@ function createFavoritesGear() {
   return gear;
 }
 
-function createAddForm() {
-  const form = createNode("form", "favorite-form");
-  form.dataset.favoriteForm = "add";
+function createSegmentedControl(name, options, selectedValue) {
+  const group = createNode("div", "segmented");
+  group.setAttribute("role", "radiogroup");
 
-  const input = createNode("input", "favorite-input");
-  input.name = "url";
-  input.type = "text";
-  input.inputMode = "url";
-  input.placeholder = "https://example.com";
-  input.required = true;
-  input.autocomplete = "url";
+  for (const [value, text] of options) {
+    const option = createNode("label", "segmented__option");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = value;
+    input.checked = value === selectedValue;
+    option.appendChild(input);
+    option.appendChild(createNode("span", null, text));
+    group.appendChild(option);
+  }
 
-  const save = createNode("button", "button button--primary", "Сохранить");
-  save.type = "submit";
-  save.disabled = favoritesBusy;
-
-  const cancel = createNode("button", "button", "Отмена");
-  cancel.type = "button";
-  cancel.dataset.favoriteAction = "cancel";
-  cancel.disabled = favoritesBusy;
-
-  form.append(input, save, cancel);
-  return form;
+  return group;
 }
 
-function createEditForm(item) {
-  const form = createNode("form", "favorite-form favorite-form--editor");
-  form.dataset.favoriteForm = "edit";
-  form.dataset.favoriteId = item.id;
+function createFormRow(labelText, control) {
+  const row = createNode("div", "favorite-form__row");
+  row.appendChild(createNode("span", "favorite-form__row-label", labelText));
+  row.appendChild(control);
+  return row;
+}
+
+function createIconButton(className, text, iconName) {
+  const button = createNode("button", className);
+  button.append(createIconNode(iconName), document.createTextNode(text));
+  return button;
+}
+
+function createFavoriteForm(item) {
+  const isEdit = item !== null;
+  const form = createNode("form", "favorite-form");
+  form.dataset.favoriteForm = isEdit ? "edit" : "add";
+  if (isEdit) {
+    form.dataset.favoriteId = item.id;
+  }
 
   const url = createNode("input", "favorite-input");
   url.name = "url";
   url.type = "text";
   url.inputMode = "url";
-  url.value = item.url;
+  url.value = isEdit ? item.url : "";
+  url.placeholder = "https://example.com";
   url.required = true;
   url.autocomplete = "url";
 
   const label = createNode("input", "favorite-input");
   label.name = "label";
   label.type = "text";
-  label.value = item.label;
-  label.placeholder = item.domain;
+  label.value = isEdit ? item.label : "";
+  label.placeholder = isEdit ? item.domain : "Необязательно";
 
-  const iconMode = createNode("select", "favorite-input");
-  iconMode.name = "iconMode";
-
-  for (const [value, text] of [
-    ["favicon", "С сайта"],
-    ["letter", "Буква"],
-    ["custom", "Своя"]
-  ]) {
-    const option = createNode("option", "", text);
-    option.value = value;
-    option.selected = value === item.iconMode;
-    iconMode.appendChild(option);
-  }
+  const iconMode = createSegmentedControl(
+    "iconMode",
+    [
+      ["favicon", "С сайта"],
+      ["letter", "Буква"],
+      ["custom", "Своя"]
+    ],
+    isEdit ? item.iconMode : "favicon"
+  );
 
   const customIconUrl = createNode("input", "favorite-input");
   customIconUrl.name = "customIconUrl";
   customIconUrl.type = "text";
   customIconUrl.inputMode = "url";
-  customIconUrl.value = item.customIconUrl ?? "";
+  customIconUrl.value = isEdit ? item.customIconUrl ?? "" : "";
   customIconUrl.placeholder = "https://example.com/icon.png";
+  const customIconRow = createFormRow("Своя иконка", customIconUrl);
+  customIconRow.classList.add("favorite-form__row--custom-icon");
 
-  const backgroundColorSource = createNode("select", "favorite-input");
-  backgroundColorSource.name = "backgroundColorSource";
-
-  for (const [value, text] of [
-    ["auto", "Определять по favicon"],
-    ["manual", "Основной цвет вручную"]
-  ]) {
-    const option = createNode("option", "", text);
-    option.value = value;
-    option.selected = value === item.backgroundColorSource;
-    backgroundColorSource.appendChild(option);
-  }
+  const backgroundColorSource = createSegmentedControl(
+    "backgroundColorSource",
+    [
+      ["auto", "Авто"],
+      ["manual", "Вручную"]
+    ],
+    isEdit ? item.backgroundColorSource : "auto"
+  );
 
   const color = createNode("input", "favorite-color-input");
   color.name = "backgroundColor";
   color.type = "color";
-  color.dataset.role = "manual-color";
-  const syncColorEnabled = () => {
-    color.style.pointerEvents =
-      backgroundColorSource.value === "manual" ? "auto" : "none";
-    color.style.opacity = backgroundColorSource.value === "manual" ? "1" : "0.5";
-  };
-  backgroundColorSource.addEventListener("change", syncColorEnabled);
-  syncColorEnabled();
-  color.value = item.backgroundColor;
+  color.value = isEdit ? item.backgroundColor : "#24292f";
 
-  const save = createNode("button", "button button--primary", "Сохранить");
-  save.type = "submit";
-  save.disabled = favoritesBusy;
+  const colorControls = createNode("div", "favorite-form__color-controls");
+  colorControls.append(backgroundColorSource, color);
+  const colorRow = createFormRow("Цвет", colorControls);
 
-  const cancel = createNode("button", "button", "Отмена");
+  const tileSize = createSegmentedControl(
+    "tileSize",
+    [
+      ["square", "Квадрат"],
+      ["wide", "Широкая 2:1"]
+    ],
+    isEdit ? item.tileSize ?? "square" : "square"
+  );
+
+  const footer = createNode("div", "favorite-form__footer");
+
+  if (isEdit) {
+    const remove = createIconButton("button button--danger", "Удалить", "trash2");
+    remove.type = "button";
+    remove.dataset.favoriteAction = "delete";
+    remove.dataset.favoriteId = item.id;
+    remove.disabled = favoritesBusy;
+    footer.appendChild(remove);
+  }
+
+  const cancel = createIconButton("button", "Отмена", "x");
   cancel.type = "button";
   cancel.dataset.favoriteAction = "cancel";
   cancel.disabled = favoritesBusy;
 
-  const remove = createNode("button", "button button--danger", "Удалить");
-  remove.type = "button";
-  remove.dataset.favoriteAction = "delete";
-  remove.dataset.favoriteId = item.id;
-  remove.disabled = favoritesBusy;
+  const save = createIconButton(
+    "button button--primary",
+    isEdit ? "Сохранить" : "Добавить",
+    "check"
+  );
+  save.type = "submit";
+  save.disabled = favoritesBusy;
+
+  footer.append(cancel, save);
 
   form.append(
-    url,
-    label,
-    iconMode,
-    customIconUrl,
-    backgroundColorSource,
-    color,
-    save,
-    cancel,
-    remove
+    createFormRow("Ссылка", url),
+    createFormRow("Название", label),
+    createFormRow("Иконка", iconMode),
+    customIconRow,
+    colorRow,
+    createFormRow("Размер плашки", tileSize),
+    footer
   );
+
   return form;
+}
+
+function readFavoriteFormPayload(data) {
+  const backgroundColorSource =
+    data.get("backgroundColorSource") === "manual" ? "manual" : "auto";
+  const payload = {
+    url: data.get("url"),
+    label: data.get("label"),
+    iconMode: data.get("iconMode"),
+    customIconUrl: data.get("customIconUrl"),
+    backgroundColorSource,
+    tileSize: data.get("tileSize") === "wide" ? "wide" : "square"
+  };
+
+  if (backgroundColorSource === "manual") {
+    payload.backgroundColor = data.get("backgroundColor");
+  }
+
+  return payload;
 }
 
 function loadBrowserImage(src) {
@@ -644,7 +683,7 @@ function renderFavoritesPanel() {
   heading.appendChild(
     createNode("p", null, "Добавление, порядок, иконка и цвет — в одном месте.")
   );
-  const addButton = createNode("button", "button button--primary", "Добавить ссылку");
+  const addButton = createIconButton("button button--primary", "Добавить ссылку", "plus");
   addButton.type = "button";
   addButton.dataset.favoriteAction = "start-add";
   addButton.disabled = favoritesBusy || isFormOpen(favoritesUi);
@@ -652,13 +691,13 @@ function renderFavoritesPanel() {
   fragment.appendChild(top);
 
   if (isAdding(favoritesUi)) {
-    fragment.appendChild(createAddForm());
+    fragment.appendChild(createFavoriteForm(null));
   }
 
   const currentEditingId = editingId(favoritesUi);
   const editingItem = items.find((item) => item.id === currentEditingId);
   if (editingItem) {
-    fragment.appendChild(createEditForm(editingItem));
+    fragment.appendChild(createFavoriteForm(editingItem));
   }
 
   const listWrap = createNode("div", "favorites-panel__list");
@@ -668,7 +707,7 @@ function renderFavoritesPanel() {
   fragment.appendChild(listWrap);
 
   const footer = createNode("div", "favorites-panel__footer");
-  const done = createNode("button", "button", "Готово");
+  const done = createIconButton("button", "Готово", "check");
   done.type = "button";
   done.dataset.favoriteAction = "close-settings";
   footer.appendChild(done);
@@ -903,18 +942,10 @@ if (favoritesRoot) {
 
       try {
         if (form.dataset.favoriteForm === "edit") {
-          const backgroundColorSource =
-            data.get("backgroundColorSource") === "manual" ? "manual" : "auto";
+          const payload = readFavoriteFormPayload(data);
           favoritesState = await favoritesService.updateFavorite(
             form.dataset.favoriteId,
-            {
-              url: data.get("url"),
-              label: data.get("label"),
-              iconMode: data.get("iconMode"),
-              customIconUrl: data.get("customIconUrl"),
-              backgroundColor: data.get("backgroundColor"),
-              backgroundColorSource
-            }
+            payload
           );
 
           finishFavoritesAction(generation, () => {
@@ -922,16 +953,14 @@ if (favoritesRoot) {
             favoritesError = "";
           });
 
-          if (backgroundColorSource === "auto") {
+          if (payload.backgroundColorSource === "auto") {
             void refreshAutoAccent(form.dataset.favoriteId);
           }
           return;
         }
 
-        favoritesState = await favoritesService.addFavorite({
-          url: data.get("url"),
-          backgroundColorSource: "auto"
-        });
+        const payload = readFavoriteFormPayload(data);
+        favoritesState = await favoritesService.addFavorite(payload);
         const added = favoritesState.items.at(-1);
 
         finishFavoritesAction(generation, () => {

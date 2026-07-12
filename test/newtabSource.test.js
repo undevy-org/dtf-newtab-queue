@@ -37,9 +37,8 @@ describe("newtab favorites source", () => {
     assert.match(code, /\.focus\(\)/);
   });
 
-  it("lets favorite URL fields reach service normalization without native URL validation", async () => {
+  it("lets favorite URL and custom-icon fields reach service normalization without native URL validation", async () => {
     const code = await source();
-    assert.match(code, /input\.type = "text";\s+input\.inputMode = "url";/);
     assert.match(code, /\burl\.type = "text";\s+url\.inputMode = "url";/);
     assert.match(code, /customIconUrl\.type = "text";\s+customIconUrl\.inputMode = "url";/);
   });
@@ -132,5 +131,32 @@ describe("newtab favorites source", () => {
     assert.doesNotMatch(code, /"‹"/);
     assert.doesNotMatch(code, /"›"/);
     assert.doesNotMatch(code, /"✎"/);
+  });
+
+  it("merges add and edit into one favorite form component", async () => {
+    const code = await source();
+    assert.doesNotMatch(code, /function createAddForm/);
+    assert.doesNotMatch(code, /function createEditForm/);
+    assert.match(code, /function createFavoriteForm\(item\)/);
+  });
+
+  it("builds icon/color/size choices as native radiogroups instead of <select>", async () => {
+    const code = await source();
+    assert.doesNotMatch(code, /createNode\("select"/);
+    assert.match(code, /function createSegmentedControl\(/);
+    assert.match(code, /input\.type = "radio";/);
+  });
+
+  it("reads a single form payload shape shared by add and edit submits", async () => {
+    const code = await source();
+    assert.match(code, /function readFavoriteFormPayload\(data\)/);
+    assert.match(code, /tileSize: data\.get\("tileSize"\) === "wide" \? "wide" : "square"/);
+  });
+
+  it("gives every panel action button a leading icon instead of bare text", async () => {
+    const code = await source();
+    assert.match(code, /createIconButton\("button button--primary", "Добавить ссылку", "plus"\)/);
+    assert.match(code, /createIconButton\("button", "Готово", "check"\)/);
+    assert.match(code, /createIconButton\("button button--danger", "Удалить", "trash2"\)/);
   });
 });

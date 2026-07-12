@@ -289,9 +289,132 @@ body {
 
 .favorite-form {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  width: min(680px, 100%);
+  justify-self: center;
+  padding: 4px 12px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.favorite-form__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.favorite-form__row:first-child {
+  border-top: none;
+}
+
+.favorite-form__row-label {
+  flex: 0 0 auto;
+  width: 100px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.favorite-form__row > .favorite-input,
+.favorite-form__row > .segmented {
+  flex: 1;
+  min-width: 0;
+}
+
+.favorite-form__row--custom-icon {
+  display: none;
+}
+
+.favorite-form:has(input[name="iconMode"][value="custom"]:checked)
+  .favorite-form__row--custom-icon {
+  display: flex;
+}
+
+.favorite-form__color-controls {
+  display: flex;
+  flex: 1;
+  align-items: center;
   gap: 10px;
+  min-width: 0;
+}
+
+.favorite-form__color-controls .segmented {
+  flex: 1;
+  min-width: 0;
+}
+
+.favorite-form__color-controls .favorite-color-input {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.favorite-form:has(input[name="backgroundColorSource"][value="manual"]:checked)
+  .favorite-form__color-controls
+  .favorite-color-input {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.favorite-form__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.favorite-form__footer .button--danger {
+  margin-right: auto;
+}
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented__option {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  height: 38px;
+  padding: 0 8px;
+  border-right: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+}
+
+.segmented__option:last-child {
+  border-right: none;
+}
+
+.segmented__option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.segmented__option:has(input:checked) {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  font-weight: 600;
+}
+
+.segmented__option:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
 }
 
 .favorite-input {
@@ -315,15 +438,6 @@ body {
 .favorite-color-input:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
-}
-
-.favorite-form--editor {
-  width: min(680px, 100%);
-  justify-self: center;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
 }
 
 .favorite-color-input {
@@ -379,6 +493,10 @@ body {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid var(--border);
