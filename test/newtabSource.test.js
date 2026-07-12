@@ -205,4 +205,13 @@ describe("newtab favorites source", () => {
     const mobileBlock = css.slice(css.indexOf("@media (max-width: 600px)"));
     assert.match(mobileBlock, /\.panel\s*\{[^}]*height: 356px;[^}]*\}/s);
   });
+
+  it("caps meta and status text at 2 lines to bound unbounded error messages", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+
+    assert.match(
+      css,
+      /\.meta,\s*\n\s*\.status\s*\{[^}]*display: -webkit-box;[^}]*-webkit-line-clamp: 2;[^}]*-webkit-box-orient: vertical;[^}]*overflow: hidden;[^}]*\}/s
+    );
+  });
 });
