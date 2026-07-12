@@ -46,13 +46,25 @@ export function createWeatherService({
 
   return {
     async initialize() {
-      const location = await locationStore.getLocation();
+      let location = null;
+
+      try {
+        location = await locationStore.getLocation();
+      } catch (error) {
+        return { status: "error", location: null, data: null, error: errorMessage(error) };
+      }
 
       if (!location) {
         return { status: "no-location", location: null, data: null, error: null };
       }
 
-      const cached = await cacheStore.getCache();
+      let cached = null;
+
+      try {
+        cached = await cacheStore.getCache();
+      } catch (error) {
+        return { status: "error", location, data: null, error: errorMessage(error) };
+      }
 
       if (isCacheFresh(cached, location, now())) {
         return { status: "ready", location, data: cached, error: null };

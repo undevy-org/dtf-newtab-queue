@@ -178,4 +178,63 @@ describe("createWeatherService", () => {
     assert.equal(result.location.name, "Батуми");
     assert.equal(fetchCalls, 1);
   });
+
+  it("resolves with status error instead of throwing when locationStore.getLocation() rejects", async () => {
+    const cacheStore = createWeatherCacheStore(createMemoryStorageArea());
+    const service = createWeatherService({
+      locationStore: {
+        getLocation: async () => {
+          throw new Error("extension context invalidated");
+        },
+        setLocation: async () => {
+          throw new Error("not expected to be called");
+        }
+      },
+      cacheStore,
+      fetchWeather: async () => WEATHER_READING,
+      fetchAirQuality: async () => AIR_READING,
+      geocodeCity: async () => TBILISI,
+      now: () => 1_000_000
+    });
+
+    await assert.doesNotReject(() => service.initialize());
+    const result = await service.initialize();
+
+    assert.equal(result.status, "error");
+    assert.equal(result.location, null);
+    assert.equal(result.data, null);
+    assert.equal(typeof result.error, "string");
+    assert.notEqual(result.error, null);
+  });
+
+  it("resolves with status error and the resolved location when cacheStore.getCache() rejects", async () => {
+    const locationStore = createWeatherLocationStore(createMemoryStorageArea());
+    await locationStore.setLocation(TBILISI);
+
+    const service = createWeatherService({
+      locationStore,
+      cacheStore: {
+        getCache: async () => {
+          throw new Error("extension context invalidated");
+        },
+        setCache: async () => {
+          throw new Error("not expected to be called");
+        }
+      },
+      fetchWeather: async () => WEATHER_READING,
+      fetchAirQuality: async () => AIR_READING,
+      geocodeCity: async () => TBILISI,
+      now: () => 1_000_000
+    });
+
+    await assert.doesNotReject(() => service.initialize());
+    const result = await service.initialize();
+
+    assert.equal(result.status, "error");
+    assert.notEqual(result.location, null);
+    assert.equal(result.location.name, TBILISI.name);
+    assert.equal(result.data, null);
+    assert.equal(typeof result.error, "string");
+    assert.notEqual(result.error, null);
+  });
 });
