@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { MAX_FAVORITES, createFavoritesStore } from "../src/favoritesStore.js";
+import { MAX_FAVORITES, createFavoritesStore, createInitialFavoritesState, isFavoritesState } from "../src/favoritesStore.js";
 import { createMemoryStorageArea } from "../src/queueStore.js";
 import {
   createFavoritesService,
@@ -374,5 +374,53 @@ describe("favoritesService", () => {
       state.items.map((item) => item.id),
       ["fav-1"]
     );
+  });
+});
+
+describe("stored backgroundColorSource enum survives the label rename", () => {
+  it("accepts items whose backgroundColorSource is auto or manual", () => {
+    const base = createInitialFavoritesState("2026-07-11T00:00:00.000Z");
+    for (const source of ["auto", "manual"]) {
+      const state = {
+        ...base,
+        items: [
+          {
+            id: "fav-1",
+            url: "https://dtf.ru/",
+            label: "DTF",
+            domain: "dtf.ru",
+            iconMode: "favicon",
+            customIconUrl: null,
+            backgroundColor: "#24292f",
+            backgroundColorSource: source,
+            createdAt: base.createdAt,
+            updatedAt: base.updatedAt
+          }
+        ]
+      };
+      assert.equal(isFavoritesState(state), true, `source=${source}`);
+    }
+  });
+
+  it("rejects a renamed/localized backgroundColorSource value", () => {
+    const base = createInitialFavoritesState("2026-07-11T00:00:00.000Z");
+    const state = {
+      ...base,
+      items: [
+        {
+          id: "fav-1",
+          url: "https://dtf.ru/",
+          label: "DTF",
+          domain: "dtf.ru",
+          iconMode: "favicon",
+          customIconUrl: null,
+          backgroundColor: "#24292f",
+          backgroundColorSource: "Определять по favicon",
+          createdAt: base.createdAt,
+          updatedAt: base.updatedAt
+        }
+      ]
+    };
+    assert.equal(isFavoritesState(state), false);
   });
 });
