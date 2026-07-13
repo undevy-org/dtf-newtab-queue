@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   WeatherApiError,
-  europeanAqiCategory,
   fetchAirQuality,
   fetchWeather,
   geocodeCity,
+  summarizeHourlyForecast,
+  usAqiCategory,
   uvIndexLevel
 } from "../src/weatherApi.js";
 
@@ -20,13 +21,24 @@ function response(body, init = {}) {
 }
 
 describe("fetchWeather", () => {
-  it("requests temperature, UV, and rain probability with the given coordinates", async () => {
+  it("requests enriched local weather data with the given coordinates", async () => {
     const calls = [];
     const fetchImpl = async (url) => {
       calls.push(url);
       return response({
-        current: { temperature_2m: 24.3 },
-        daily: { uv_index_max: [6.1], precipitation_probability_max: [20] }
+        current: { temperature_2m: 26.7 },
+        daily: { time: ["2026-07-12", "2026-07-13"], uv_index_max: [4.4, 7.7] },
+        hourly: {
+          time: [
+            "2026-07-12T15:00",
+            "2026-07-13T00:00",
+            "2026-07-13T15:00",
+            "2026-07-13T17:00",
+            "2026-07-13T19:00"
+          ],
+          temperature_2m: [29, 22, 27, 26, 25],
+          precipitation_probability: [0, 0, 0, 30, 90]
+        }
       });
     };
 
@@ -40,16 +52,40 @@ describe("fetchWeather", () => {
     assert.equal(requestedUrl.searchParams.get("latitude"), "41.72");
     assert.equal(requestedUrl.searchParams.get("longitude"), "44.78");
     assert.equal(requestedUrl.searchParams.get("current"), "temperature_2m");
+    assert.equal(requestedUrl.searchParams.get("daily"), "uv_index_max");
     assert.equal(
-      requestedUrl.searchParams.get("daily"),
-      "uv_index_max,precipitation_probability_max"
+      requestedUrl.searchParams.get("hourly"),
+      "temperature_2m,precipitation_probability"
     );
+    assert.equal(requestedUrl.searchParams.get("past_days"), "1");
+    assert.equal(requestedUrl.searchParams.get("forecast_days"), "1");
     assert.equal(requestedUrl.searchParams.get("timezone"), "auto");
     assert.deepEqual(result, {
-      temperature: 24.3,
-      uvIndexMax: 6.1,
-      precipitationProbabilityMax: 20
+      temperature: 26.7,
+      temperatureTodayAt15: 27,
+      temperatureYesterdayAt15: 29,
+      uvIndexMax: 7.7,
+      precipitationProbabilityMax: 90,
+      precipitationStartHour: "17:00"
     });
+  });
+
+  it("returns zero precipitation probability and no noticeable precipitation start hour", async () => {
+    const fetchImpl = async () =>
+      response({
+        current: { temperature_2m: 26.7 },
+        daily: { time: ["2026-07-13"], uv_index_max: [7.7] },
+        hourly: {
+          time: ["2026-07-12T15:00", "2026-07-13T00:00", "2026-07-13T15:00"],
+          temperature_2m: [29, 22, 27],
+          precipitation_probability: [0, 0, 0]
+        }
+      });
+
+    const result = await fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl });
+
+    assert.equal(result.precipitationProbabilityMax, 0);
+    assert.equal(result.precipitationStartHour, null);
   });
 
   it("throws WeatherApiError for invalid coordinates", async () => {
@@ -72,8 +108,70 @@ describe("fetchWeather", () => {
     );
   });
 
-  it("throws WeatherApiError when expected fields are missing", async () => {
-    const fetchImpl = async () => response({ current: {}, daily: {} });
+  it("throws WeatherApiError when the daily local date is missing", async () => {
+    const fetchImpl = async () =>
+      response({ current: { temperature_2m: 26.7 }, daily: { uv_index_max: [7.7] } });
+
+    await assert.rejects(
+      () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
+      (error) => error instanceof WeatherApiError
+    );
+  });
+
+  it("throws WeatherApiError when the daily local date is blank", async () => {
+    const fetchImpl = async () =>
+      response({
+        current: { temperature_2m: 26.7 },
+        daily: { time: [""], uv_index_max: [7.7] }
+      });
+
+    await assert.rejects(
+      () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
+      (error) => error instanceof WeatherApiError
+    );
+  });
+
+  it("throws WeatherApiError when an earlier daily date is blank", async () => {
+    const fetchImpl = async () =>
+      response({
+        current: { temperature_2m: 26.7 },
+        daily: {
+          time: ["", "2026-07-13"],
+          uv_index_max: [4.4, 7.7]
+        }
+      });
+
+    await assert.rejects(
+      () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
+      (error) => error instanceof WeatherApiError
+    );
+  });
+
+  it("throws WeatherApiError when an earlier daily UV value is missing", async () => {
+    const fetchImpl = async () =>
+      response({
+        current: { temperature_2m: 26.7 },
+        daily: {
+          time: ["2026-07-12", "2026-07-13"],
+          uv_index_max: [undefined, 7.7]
+        }
+      });
+
+    await assert.rejects(
+      () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
+      (error) => error instanceof WeatherApiError
+    );
+  });
+
+  it("throws WeatherApiError when daily dates and UV values are misaligned", async () => {
+    const fetchImpl = async () =>
+      response({
+        current: { temperature_2m: 26.7 },
+        daily: {
+          time: ["2026-07-12", "2026-07-13"],
+          uv_index_max: [4.4]
+        }
+      });
 
     await assert.rejects(
       () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
@@ -97,12 +195,76 @@ describe("fetchWeather", () => {
   });
 });
 
+describe("summarizeHourlyForecast", () => {
+  const validHourlyForecast = {
+    today: "2026-07-13",
+    time: [
+      "2026-07-12T15:00",
+      "2026-07-13T00:00",
+      "2026-07-13T15:00",
+      "2026-07-13T17:00"
+    ],
+    temperatures: [29, 22, 27, 26],
+    probabilities: [0, 0, 0, 30]
+  };
+
+  it("throws WeatherApiError when either local 15:00 timestamp is missing", () => {
+    assert.throws(
+      () =>
+        summarizeHourlyForecast({
+          ...validHourlyForecast,
+          time: validHourlyForecast.time.slice(1),
+          temperatures: validHourlyForecast.temperatures.slice(1),
+          probabilities: validHourlyForecast.probabilities.slice(1)
+        }),
+      WeatherApiError
+    );
+    assert.throws(
+      () =>
+        summarizeHourlyForecast({
+          ...validHourlyForecast,
+          time: validHourlyForecast.time.filter((timestamp) => timestamp !== "2026-07-13T15:00"),
+          temperatures: validHourlyForecast.temperatures.slice(0, -1),
+          probabilities: validHourlyForecast.probabilities.slice(0, -1)
+        }),
+      WeatherApiError
+    );
+  });
+
+  it("throws WeatherApiError when either local 15:00 temperature is undefined or non-finite", () => {
+    for (const [index, value] of [
+      [0, undefined],
+      [0, Number.NaN],
+      [2, undefined],
+      [2, Number.POSITIVE_INFINITY]
+    ]) {
+      const temperatures = [...validHourlyForecast.temperatures];
+      temperatures[index] = value;
+
+      assert.throws(
+        () => summarizeHourlyForecast({ ...validHourlyForecast, temperatures }),
+        WeatherApiError
+      );
+    }
+  });
+
+  it("throws WeatherApiError when a current-day precipitation probability is non-finite", () => {
+    const probabilities = [...validHourlyForecast.probabilities];
+    probabilities[1] = Number.NaN;
+
+    assert.throws(
+      () => summarizeHourlyForecast({ ...validHourlyForecast, probabilities }),
+      WeatherApiError
+    );
+  });
+});
+
 describe("fetchAirQuality", () => {
-  it("requests European AQI and PM2.5 with the given coordinates", async () => {
+  it("requests US AQI and PM2.5 with the given coordinates", async () => {
     const calls = [];
     const fetchImpl = async (url) => {
       calls.push(url);
-      return response({ current: { european_aqi: 34, pm2_5: 11.4 } });
+      return response({ current: { us_aqi: 34, pm2_5: 11.4 } });
     };
 
     const result = await fetchAirQuality({ latitude: 41.72, longitude: 44.78, fetchImpl });
@@ -114,8 +276,8 @@ describe("fetchAirQuality", () => {
     );
     assert.equal(requestedUrl.searchParams.get("latitude"), "41.72");
     assert.equal(requestedUrl.searchParams.get("longitude"), "44.78");
-    assert.equal(requestedUrl.searchParams.get("current"), "european_aqi,pm2_5");
-    assert.deepEqual(result, { europeanAqi: 34, pm2_5: 11.4 });
+    assert.equal(requestedUrl.searchParams.get("current"), "us_aqi,pm2_5");
+    assert.deepEqual(result, { usAqi: 34, pm2_5: 11.4 });
   });
 
   it("throws WeatherApiError on non-200 responses", async () => {
@@ -243,19 +405,17 @@ describe("uvIndexLevel", () => {
   });
 });
 
-describe("europeanAqiCategory", () => {
-  it("maps values to European AQI bands", () => {
-    assert.equal(europeanAqiCategory(0), "Хорошо");
-    assert.equal(europeanAqiCategory(20), "Хорошо");
-    assert.equal(europeanAqiCategory(21), "Приемлемо");
-    assert.equal(europeanAqiCategory(40), "Приемлемо");
-    assert.equal(europeanAqiCategory(41), "Умеренно");
-    assert.equal(europeanAqiCategory(60), "Умеренно");
-    assert.equal(europeanAqiCategory(61), "Плохо");
-    assert.equal(europeanAqiCategory(80), "Плохо");
-    assert.equal(europeanAqiCategory(81), "Очень плохо");
-    assert.equal(europeanAqiCategory(100), "Очень плохо");
-    assert.equal(europeanAqiCategory(101), "Критично");
-    assert.equal(europeanAqiCategory(250), "Критично");
+describe("usAqiCategory", () => {
+  it("maps values to US AQI bands", () => {
+    assert.equal(usAqiCategory(50), "Хорошо");
+    assert.equal(usAqiCategory(51), "Умеренно");
+    assert.equal(usAqiCategory(100), "Умеренно");
+    assert.equal(usAqiCategory(101), "Вредно для чувствительных групп");
+    assert.equal(usAqiCategory(150), "Вредно для чувствительных групп");
+    assert.equal(usAqiCategory(151), "Вредно");
+    assert.equal(usAqiCategory(200), "Вредно");
+    assert.equal(usAqiCategory(201), "Очень вредно");
+    assert.equal(usAqiCategory(300), "Очень вредно");
+    assert.equal(usAqiCategory(301), "Опасно");
   });
 });

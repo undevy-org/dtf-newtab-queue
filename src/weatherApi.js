@@ -18,23 +18,21 @@ const UV_INDEX_LEVELS = [
   { max: Infinity, label: "Экстремальный" }
 ];
 
-const EUROPEAN_AQI_CATEGORIES = [
-  { max: 20, label: "Хорошо" },
-  { max: 40, label: "Приемлемо" },
-  { max: 60, label: "Умеренно" },
-  { max: 80, label: "Плохо" },
-  { max: 100, label: "Очень плохо" },
-  { max: Infinity, label: "Критично" }
+const US_AQI_CATEGORIES = [
+  { max: 50, label: "Хорошо" },
+  { max: 100, label: "Умеренно" },
+  { max: 150, label: "Вредно для чувствительных групп" },
+  { max: 200, label: "Вредно" },
+  { max: 300, label: "Очень вредно" },
+  { max: Infinity, label: "Опасно" }
 ];
 
 export function uvIndexLevel(value) {
   return (UV_INDEX_LEVELS.find((band) => value <= band.max) ?? UV_INDEX_LEVELS.at(-1)).label;
 }
 
-export function europeanAqiCategory(value) {
-  return (
-    EUROPEAN_AQI_CATEGORIES.find((band) => value <= band.max) ?? EUROPEAN_AQI_CATEGORIES.at(-1)
-  ).label;
+export function usAqiCategory(value) {
+  return (US_AQI_CATEGORIES.find((band) => value <= band.max) ?? US_AQI_CATEGORIES.at(-1)).label;
 }
 
 function assertCoordinate(value, fieldName) {
@@ -55,6 +53,86 @@ function assertFiniteField(value, fieldName, context) {
   }
 }
 
+function previousLocalDate(dateString) {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
+
+  if (!parts) {
+    throw new WeatherApiError("Open-Meteo response has invalid daily.time[0]", { dateString });
+  }
+
+  const [year, month, day] = parts.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw new WeatherApiError("Open-Meteo response has invalid daily.time[0]", { dateString });
+  }
+
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function hourlyTimestampIndex(time, timestamp) {
+  const index = Array.isArray(time) ? time.indexOf(timestamp) : -1;
+
+  if (index === -1) {
+    throw new WeatherApiError("Open-Meteo response is missing hourly timestamp", { timestamp });
+  }
+
+  return index;
+}
+
+export function summarizeHourlyForecast({ today, time, temperatures, probabilities }) {
+  const yesterday = previousLocalDate(today);
+  const todayAt15 = `${today}T15:00`;
+  const yesterdayAt15 = `${yesterday}T15:00`;
+  const todayAt15Index = hourlyTimestampIndex(time, todayAt15);
+  const yesterdayAt15Index = hourlyTimestampIndex(time, yesterdayAt15);
+  const temperatureTodayAt15 = Array.isArray(temperatures)
+    ? temperatures[todayAt15Index]
+    : undefined;
+  const temperatureYesterdayAt15 = Array.isArray(temperatures)
+    ? temperatures[yesterdayAt15Index]
+    : undefined;
+
+  assertFiniteField(temperatureTodayAt15, "hourly.temperature_2m at local 15:00", {
+    timestamp: todayAt15
+  });
+  assertFiniteField(temperatureYesterdayAt15, "hourly.temperature_2m at local 15:00", {
+    timestamp: yesterdayAt15
+  });
+
+  const currentDayHours = (Array.isArray(time) ? time : [])
+    .map((timestamp, index) => ({
+      timestamp,
+      probability: Array.isArray(probabilities) ? probabilities[index] : undefined
+    }))
+    .filter(
+      ({ timestamp }) =>
+        typeof timestamp === "string" && timestamp.startsWith(`${today}T`)
+    );
+
+  for (const { timestamp, probability } of currentDayHours) {
+    assertFiniteField(probability, "hourly.precipitation_probability", { timestamp });
+  }
+
+  const precipitationProbabilityMax = Math.max(
+    ...currentDayHours.map(({ probability }) => probability)
+  );
+  const precipitationStartHour =
+    currentDayHours.find(({ probability }) => probability >= 30)?.timestamp.slice(11, 16) ?? null;
+
+  return {
+    temperatureTodayAt15,
+    temperatureYesterdayAt15,
+    precipitationProbabilityMax,
+    precipitationStartHour
+  };
+}
+
 async function parseJson(response, url, label) {
   try {
     return await response.json();
@@ -71,7 +149,10 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
   url.searchParams.set("latitude", String(latitude));
   url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("current", "temperature_2m");
-  url.searchParams.set("daily", "uv_index_max,precipitation_probability_max");
+  url.searchParams.set("daily", "uv_index_max");
+  url.searchParams.set("hourly", "temperature_2m,precipitation_probability");
+  url.searchParams.set("past_days", "1");
+  url.searchParams.set("forecast_days", "1");
   url.searchParams.set("timezone", "auto");
 
   const response = await fetchImpl(url.toString());
@@ -85,16 +166,62 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
 
   const body = await parseJson(response, url.toString(), "Open-Meteo forecast");
   const temperature = body?.current?.temperature_2m;
-  const uvIndexMax = body?.daily?.uv_index_max?.[0];
-  const precipitationProbabilityMax = body?.daily?.precipitation_probability_max?.[0];
+  const dailyDates = body?.daily?.time;
+  const dailyUvIndexMax = body?.daily?.uv_index_max;
 
   assertFiniteField(temperature, "current.temperature_2m", { url: url.toString() });
-  assertFiniteField(uvIndexMax, "daily.uv_index_max[0]", { url: url.toString() });
-  assertFiniteField(precipitationProbabilityMax, "daily.precipitation_probability_max[0]", {
-    url: url.toString()
+
+  if (!Array.isArray(dailyDates) || dailyDates.length === 0) {
+    throw new WeatherApiError("Open-Meteo response is missing daily.time", {
+      url: url.toString()
+    });
+  }
+
+  if (!Array.isArray(dailyUvIndexMax) || dailyUvIndexMax.length !== dailyDates.length) {
+    throw new WeatherApiError("Open-Meteo response has misaligned daily weather data", {
+      url: url.toString(),
+      dailyDateCount: dailyDates.length,
+      dailyUvIndexMaxCount: Array.isArray(dailyUvIndexMax) ? dailyUvIndexMax.length : null
+    });
+  }
+
+  for (const [index, date] of dailyDates.entries()) {
+    if (typeof date !== "string" || date.trim() === "") {
+      throw new WeatherApiError("Open-Meteo response is missing a daily date", {
+        url: url.toString(),
+        index
+      });
+    }
+  }
+
+  for (const [index, value] of dailyUvIndexMax.entries()) {
+    assertFiniteField(value, "daily.uv_index_max", { url: url.toString(), index });
+  }
+
+  const todayIndex = dailyDates.length - 1;
+  const today = dailyDates[todayIndex];
+  const uvIndexMax = dailyUvIndexMax[todayIndex];
+
+  const {
+    temperatureTodayAt15,
+    temperatureYesterdayAt15,
+    precipitationProbabilityMax,
+    precipitationStartHour
+  } = summarizeHourlyForecast({
+    today,
+    time: body?.hourly?.time,
+    temperatures: body?.hourly?.temperature_2m,
+    probabilities: body?.hourly?.precipitation_probability
   });
 
-  return { temperature, uvIndexMax, precipitationProbabilityMax };
+  return {
+    temperature,
+    temperatureTodayAt15,
+    temperatureYesterdayAt15,
+    uvIndexMax,
+    precipitationProbabilityMax,
+    precipitationStartHour
+  };
 }
 
 export async function fetchAirQuality({ latitude, longitude, fetchImpl = globalThis.fetch }) {
@@ -104,7 +231,7 @@ export async function fetchAirQuality({ latitude, longitude, fetchImpl = globalT
   const url = new URL(AIR_QUALITY_ENDPOINT);
   url.searchParams.set("latitude", String(latitude));
   url.searchParams.set("longitude", String(longitude));
-  url.searchParams.set("current", "european_aqi,pm2_5");
+  url.searchParams.set("current", "us_aqi,pm2_5");
 
   const response = await fetchImpl(url.toString());
 
@@ -116,13 +243,13 @@ export async function fetchAirQuality({ latitude, longitude, fetchImpl = globalT
   }
 
   const body = await parseJson(response, url.toString(), "Open-Meteo air quality");
-  const europeanAqi = body?.current?.european_aqi;
+  const usAqi = body?.current?.us_aqi;
   const pm2_5 = body?.current?.pm2_5;
 
-  assertFiniteField(europeanAqi, "current.european_aqi", { url: url.toString() });
+  assertFiniteField(usAqi, "current.us_aqi", { url: url.toString() });
   assertFiniteField(pm2_5, "current.pm2_5", { url: url.toString() });
 
-  return { europeanAqi, pm2_5 };
+  return { usAqi, pm2_5 };
 }
 
 export async function geocodeCity(name, { fetchImpl = globalThis.fetch } = {}) {
