@@ -12,8 +12,8 @@ import {
 
 describe("temperatureTone", () => {
   it("uses the fixed cool and hot thresholds", () => {
-    assert.equal(temperatureTone({ todayAt15: 25, yesterdayAt15: 30 }), "green");
-    assert.equal(temperatureTone({ todayAt15: 30, yesterdayAt15: 20 }), "orange");
+    assert.equal(temperatureTone({ todayAt15: 25, yesterdayAt15: 23 }), "green");
+    assert.equal(temperatureTone({ todayAt15: 30, yesterdayAt15: 35 }), "orange");
   });
 
   it("compares moderate temperatures with yesterday at 15:00", () => {
@@ -70,5 +70,6 @@ describe("weather formatting", () => {
     assert.deepEqual(formatPrecipitation(90, "17:00"), ["90%", "17:00"]);
     assert.deepEqual(formatPrecipitation(0, null), ["0%", null]);
     assert.equal(formatPm25(9.3), "9.3");
+    assert.equal(formatPm25(225.4321), "225.4");
   });
 });

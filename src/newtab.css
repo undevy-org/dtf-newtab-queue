@@ -709,6 +709,8 @@ body {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
   white-space: nowrap;
 }
 

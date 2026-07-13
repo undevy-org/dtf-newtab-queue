@@ -56,5 +56,5 @@ export function formatPrecipitation(maxProbability, startHour) {
 }
 
 export function formatPm25(value) {
-  return String(value);
+  return value.toFixed(1);
 }

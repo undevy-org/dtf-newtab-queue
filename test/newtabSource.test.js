@@ -157,6 +157,10 @@ describe("newtab favorites source", () => {
       css,
       /\.weather-tile--wide\s*\{[^}]*flex-basis: calc\(var\(--weather-tile-height\) \* 2\);/s
     );
+    assert.match(
+      css,
+      /\.weather-tile__values\s*\{[^}]*max-width: 100%;[^}]*overflow: hidden;/s
+    );
   });
 
   it("renders tile size from data and reuses the shared icon module for the gear and panel controls", async () => {
