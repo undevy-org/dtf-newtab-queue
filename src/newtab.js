@@ -174,18 +174,31 @@ function renderShell({
   }
 
   const fragment = document.createDocumentFragment();
+  const contentClassName =
+    icon && actions.length > 0
+      ? "news-content news-content--milestone"
+      : "news-content";
+  const content = createNode("div", contentClassName);
   let titleNode = null;
 
   if (icon) {
-    fragment.appendChild(createMilestoneTitleNode(title, icon, { spin: iconSpin }));
+    content.appendChild(createMilestoneTitleNode(title, icon, { spin: iconSpin }));
   } else {
     const created = createTitleNode(title);
-    fragment.appendChild(created.titleWrap);
+    content.appendChild(created.titleWrap);
     titleNode = created.titleNode;
   }
 
   if (meta) {
-    fragment.appendChild(createNode("p", "meta", meta));
+    content.appendChild(createNode("p", "meta", meta));
+  }
+
+  if (status) {
+    content.appendChild(createStatus(status));
+  }
+
+  if (error) {
+    content.appendChild(createStatus(error, { error: true, live: "assertive" }));
   }
 
   if (actions.length > 0) {
@@ -195,15 +208,9 @@ function renderShell({
       actionRow.appendChild(action);
     }
 
-    fragment.appendChild(actionRow);
-  }
-
-  if (status) {
-    fragment.appendChild(createStatus(status));
-  }
-
-  if (error) {
-    fragment.appendChild(createStatus(error, { error: true, live: "assertive" }));
+    fragment.append(content, actionRow);
+  } else {
+    fragment.appendChild(content);
   }
 
   app.replaceChildren(fragment);
@@ -247,8 +254,8 @@ function renderArchiveEnded(error = null, busyMessage = "") {
     error,
     icon: "checkCheck",
     actions: [
-      createButton("Проверить новые", "retry", { primary: true }),
-      createButton("Сбросить", "reset")
+      createButton("Сбросить", "reset"),
+      createButton("Проверить новые", "retry", { primary: true })
     ]
   });
 }
@@ -261,9 +268,9 @@ function renderFork(error = null, busyMessage = "") {
     error,
     icon: "check",
     actions: [
-      createButton("Проверить новые", "retry", { primary: true }),
+      createButton("Сбросить", "reset"),
       createButton("Глубже в архив", "archive"),
-      createButton("Сбросить", "reset")
+      createButton("Проверить новые", "retry", { primary: true })
     ]
   });
 }

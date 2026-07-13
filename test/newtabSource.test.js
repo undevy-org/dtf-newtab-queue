@@ -8,6 +8,15 @@ async function source() {
   return readFile(NEWTAB_SOURCE, "utf8");
 }
 
+function functionSource(code, name) {
+  const marker = `function ${name}(`;
+  const start = code.indexOf(marker);
+  assert.notEqual(start, -1, `Expected function ${name} in newtab.js.`);
+
+  const nextFunction = code.indexOf("\nfunction ", start + marker.length);
+  return code.slice(start, nextFunction === -1 ? code.length : nextFunction);
+}
+
 describe("newtab favorites source", () => {
   it("drives the favorites UI from the pure state machine, not a mode string", async () => {
     const code = await source();
@@ -221,20 +230,88 @@ describe("newtab favorites source", () => {
     assert.match(code, /if \(items\.length > 0\) \{\s*const list = createNode\("div", "favorites-grid"\);/);
   });
 
-  it("locks the news card to one constant height, with the title always reserving exactly 3 lines", async () => {
+  it("locks the news card to one constant height in a two-region flex column, with the title always reserving exactly 3 lines", async () => {
     const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
 
     assert.match(
       css,
-      /\.title\s*\{[^}]*min-height: calc\(1\.22em \* 3\);[^}]*-webkit-line-clamp: 3;[^}]*-webkit-box-orient: vertical;[^}]*overflow: hidden;[^}]*\}/s
+      /\.panel \.title\s*\{[^}]*min-height: calc\(1\.22em \* 3\);[^}]*-webkit-line-clamp: 3;[^}]*-webkit-box-orient: vertical;[^}]*overflow: hidden;[^}]*\}/s
     );
+    assert.doesNotMatch(
+      css,
+      /^\.title\s*\{[^}]*min-height: calc\(1\.22em \* 3\);/m
+    );
+    assert.doesNotMatch(css, /\.weather-panel \.title\s*\{[^}]*min-height:/s);
     assert.match(
       css,
-      /\.panel\s*\{[^}]*height: 282px;[^}]*align-content: start;[^}]*\}/s
+      /\.panel\s*\{[^}]*display: flex;[^}]*flex-direction: column;[^}]*height: 282px;[^}]*padding: 0;[^}]*overflow: hidden;[^}]*\}/s
     );
+    assert.doesNotMatch(css, /\.panel\s*\{[^}]*align-content: start;/s);
 
     const mobileBlock = css.slice(css.indexOf("@media (max-width: 600px)"));
     assert.match(mobileBlock, /\.panel\s*\{[^}]*height: 356px;[^}]*\}/s);
+    assert.doesNotMatch(mobileBlock, /\.panel\s*\{[^}]*padding:/s);
+  });
+
+  it("renders news content and an optional action footer as sibling panel regions", async () => {
+    const code = await source();
+    const renderShell = functionSource(code, "renderShell");
+
+    assert.match(renderShell, /const content = createNode\("div", contentClassName\);/);
+    assert.match(
+      renderShell,
+      /const contentClassName =\s*icon && actions\.length > 0\s*\? "news-content news-content--milestone"\s*:\s*"news-content";/s
+    );
+    assert.match(renderShell, /content\.appendChild\(createNode\("p", "meta", meta\)\);/);
+    assert.match(renderShell, /content\.appendChild\(createStatus\(status\)\);/);
+    assert.match(
+      renderShell,
+      /content\.appendChild\(createStatus\(error, \{ error: true, live: "assertive" \}\)\);/
+    );
+    assert.match(
+      renderShell,
+      /if \(actions\.length > 0\) \{[\s\S]*?const actionRow = createNode\("div", "actions"\);[\s\S]*?fragment\.append\(content, actionRow\);\s*\} else \{\s*fragment\.appendChild\(content\);\s*\}/
+    );
+
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.match(
+      css,
+      /\.news-content\s*\{[^}]*flex: 1 1 auto;[^}]*min-height: 0;[^}]*display: flex;[^}]*flex-direction: column;[^}]*align-items: flex-start;[^}]*justify-content: flex-start;[^}]*gap: 12px;[^}]*padding: 28px;[^}]*overflow: hidden;[^}]*\}/s
+    );
+    assert.match(
+      css,
+      /\.news-content--milestone\s*\{[^}]*align-items: center;[^}]*justify-content: center;[^}]*text-align: center;[^}]*\}/s
+    );
+    assert.match(
+      css,
+      /\.actions\s*\{[^}]*flex: 0 0 auto;[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*justify-content: flex-end;[^}]*gap: 10px;[^}]*padding: 14px 28px;[^}]*border-top: 1px solid var\(--border\);[^}]*background: var\(--panel\);[^}]*\}/s
+    );
+
+    const mobileBlock = css.slice(css.indexOf("@media (max-width: 600px)"));
+    assert.match(mobileBlock, /\.news-content\s*\{[^}]*padding: 22px;[^}]*\}/s);
+    assert.match(mobileBlock, /\.actions\s*\{[^}]*padding: 10px 22px;[^}]*\}/s);
+    assert.doesNotMatch(mobileBlock, /\.actions,\s*\.favorite-form\s*\{[^}]*flex-direction: column;/s);
+    assert.match(mobileBlock, /\.actions \.button\s*\{[^}]*width: auto;[^}]*\}/s);
+  });
+
+  it("keeps action-state buttons ordered with the primary control last", async () => {
+    const code = await source();
+    const renderCard = functionSource(code, "renderCard");
+    const renderArchiveEnded = functionSource(code, "renderArchiveEnded");
+    const renderFork = functionSource(code, "renderFork");
+
+    assert.match(
+      renderCard,
+      /const actions = \[\s*createButton\("Просмотрел", "viewed"\),\s*createButton\("Перейти", "open", \{ primary: true \}\)\s*\];/
+    );
+    assert.match(
+      renderArchiveEnded,
+      /actions: \[\s*createButton\("Сбросить", "reset"\),\s*createButton\("Проверить новые", "retry", \{ primary: true \}\)\s*\]/
+    );
+    assert.match(
+      renderFork,
+      /actions: \[\s*createButton\("Сбросить", "reset"\),\s*createButton\("Глубже в архив", "archive"\),\s*createButton\("Проверить новые", "retry", \{ primary: true \}\)\s*\]/
+    );
   });
 
   it("shows a themed popover with the full title only when the 3-line clamp actually truncated it", async () => {
@@ -251,6 +328,10 @@ describe("newtab favorites source", () => {
     assert.match(
       css,
       /\.title:hover \+ \.title-popover,\s*\.title:focus-visible \+ \.title-popover\s*\{[^}]*display: block;[^}]*\}/s
+    );
+    assert.match(
+      css,
+      /\.panel:has\(\.title:hover \+ \.title-popover\),\s*\.panel:has\(\.title:focus-visible \+ \.title-popover\),\s*\.news-content:has\(\.title:hover \+ \.title-popover\),\s*\.news-content:has\(\.title:focus-visible \+ \.title-popover\)\s*\{[^}]*overflow: visible;[^}]*\}/s
     );
   });
 
@@ -279,7 +360,7 @@ describe("newtab favorites source", () => {
     assert.match(code, /icon = null,\s*iconSpin = false/);
     assert.match(
       code,
-      /fragment\.appendChild\(createMilestoneTitleNode\(title, icon, \{ spin: iconSpin \}\)\);/
+      /content\.appendChild\(createMilestoneTitleNode\(title, icon, \{ spin: iconSpin \}\)\);/
     );
     assert.match(
       code,

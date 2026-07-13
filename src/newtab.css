@@ -455,18 +455,40 @@ body {
 
 .panel {
   width: min(680px, 100%);
-  display: grid;
-  gap: 12px;
-  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  height: 282px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
   box-shadow: 0 18px 50px rgb(0 0 0 / 10%);
-  height: 282px;
-  align-content: start;
+  overflow: hidden;
 }
 
-.title {
+.news-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 28px;
+  overflow: hidden;
+}
+
+.news-content--milestone {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.news-content > .title-wrap {
+  width: 100%;
+}
+
+.panel .title {
   margin: 0;
   font-size: 26px;
   line-height: 1.22;
@@ -507,6 +529,13 @@ body {
 .title:hover + .title-popover,
 .title:focus-visible + .title-popover {
   display: block;
+}
+
+.panel:has(.title:hover + .title-popover),
+.panel:has(.title:focus-visible + .title-popover),
+.news-content:has(.title:hover + .title-popover),
+.news-content:has(.title:focus-visible + .title-popover) {
+  overflow: visible;
 }
 
 .title-wrap--milestone {
@@ -573,10 +602,14 @@ body {
 }
 
 .actions {
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
-  margin-top: 4px;
+  padding: 14px 28px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
 }
 
 .button {
@@ -802,11 +835,18 @@ body {
   }
 
   .panel {
-    padding: 22px;
     height: 356px;
   }
 
-  .title {
+  .news-content {
+    padding: 22px;
+  }
+
+  .actions {
+    padding: 10px 22px;
+  }
+
+  .panel .title {
     font-size: 22px;
   }
 
@@ -824,7 +864,6 @@ body {
     font-size: 22px;
   }
 
-  .actions,
   .favorite-form {
     flex-direction: column;
   }
@@ -832,6 +871,10 @@ body {
   .button,
   .favorite-input {
     width: 100%;
+  }
+
+  .actions .button {
+    width: auto;
   }
 
   .weather-panel {
