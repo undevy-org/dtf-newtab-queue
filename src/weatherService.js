@@ -39,7 +39,10 @@ export function createWeatherService({
       temperature: weather.temperature,
       uvIndexMax: weather.uvIndexMax,
       precipitationProbabilityMax: weather.precipitationProbabilityMax,
-      europeanAqi: airQuality.europeanAqi,
+      temperatureTodayAt15: weather.temperatureTodayAt15,
+      temperatureYesterdayAt15: weather.temperatureYesterdayAt15,
+      precipitationStartHour: weather.precipitationStartHour,
+      usAqi: airQuality.usAqi,
       pm2_5: airQuality.pm2_5
     });
   }

@@ -6,8 +6,15 @@ import { WeatherApiError } from "../src/weatherApi.js";
 import { createWeatherService } from "../src/weatherService.js";
 
 const TBILISI = { name: "Тбилиси", country: "Georgia", latitude: 41.72, longitude: 44.78 };
-const WEATHER_READING = { temperature: 24, uvIndexMax: 6.1, precipitationProbabilityMax: 20 };
-const AIR_READING = { europeanAqi: 34, pm2_5: 11.4 };
+const WEATHER_READING = {
+  temperature: 24,
+  temperatureTodayAt15: 26.7,
+  temperatureYesterdayAt15: 25.2,
+  uvIndexMax: 6.1,
+  precipitationProbabilityMax: 20,
+  precipitationStartHour: "17:00"
+};
+const AIR_READING = { usAqi: 34, pm2_5: 11.4 };
 
 function createHarness({
   now = () => 1_000_000,
@@ -57,7 +64,10 @@ describe("createWeatherService", () => {
     assert.equal(result.status, "ready");
     assert.equal(result.location.name, "Тбилиси");
     assert.equal(result.data.temperature, 24);
-    assert.equal(result.data.europeanAqi, 34);
+    assert.equal(result.data.usAqi, 34);
+    assert.equal(result.data.temperatureTodayAt15, 26.7);
+    assert.equal(result.data.temperatureYesterdayAt15, 25.2);
+    assert.equal(result.data.precipitationStartHour, "17:00");
     assert.deepEqual(await locationStore.getLocation(), result.location);
     assert.deepEqual(
       calls.map(([kind, args]) => [kind, args.latitude, args.longitude]),

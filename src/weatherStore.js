@@ -4,7 +4,7 @@ export const WEATHER_LOCATION_STORAGE_KEY = "dtfWeatherLocation";
 export const WEATHER_CACHE_STORAGE_KEY = "dtfWeatherCache";
 
 const WEATHER_LOCATION_VERSION = 1;
-const WEATHER_CACHE_VERSION = 1;
+const WEATHER_CACHE_VERSION = 2;
 
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -32,20 +32,29 @@ export function isWeatherCache(value) {
     "temperature",
     "uvIndexMax",
     "precipitationProbabilityMax",
-    "europeanAqi",
+    "temperatureTodayAt15",
+    "temperatureYesterdayAt15",
+    "precipitationStartHour",
+    "usAqi",
     "pm2_5"
   ];
 
   return (
     isRecord(value) &&
     hasOwnFields(value, requiredFields) &&
+    Reflect.ownKeys(value).length === requiredFields.length &&
     value.version === WEATHER_CACHE_VERSION &&
     isNonEmptyString(value.locationName) &&
     isFiniteNumber(value.fetchedAt) &&
     isFiniteNumber(value.temperature) &&
     isFiniteNumber(value.uvIndexMax) &&
     isFiniteNumber(value.precipitationProbabilityMax) &&
-    isFiniteNumber(value.europeanAqi) &&
+    isFiniteNumber(value.temperatureTodayAt15) &&
+    isFiniteNumber(value.temperatureYesterdayAt15) &&
+    (value.precipitationStartHour === null ||
+      (typeof value.precipitationStartHour === "string" &&
+        /^(?:[01]\d|2[0-3]):00$/.test(value.precipitationStartHour))) &&
+    isFiniteNumber(value.usAqi) &&
     isFiniteNumber(value.pm2_5)
   );
 }
