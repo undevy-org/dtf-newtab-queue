@@ -119,6 +119,37 @@ describe("newtab favorites source", () => {
     assert.match(css, /\.favorites-panel\s*\{[^}]*z-index: 40;/s);
   });
 
+  it("anchors the weather toolbar to the viewport and scales its tiles on mobile", async () => {
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+
+    assert.match(
+      css,
+      /\.weather-panel\s*\{[^}]*position: fixed;[^}]*bottom: 16px;[^}]*width: fit-content;[^}]*max-width: calc\(100vw - 32px\);[^}]*--weather-tile-height: 52px;[^}]*--favorite-tile-height: var\(--weather-tile-height\);/s
+    );
+    assert.match(
+      css,
+      /\.weather-tile--wide\s*\{[^}]*width: calc\(var\(--weather-tile-height\) \* 2\);/s
+    );
+
+    const mobileBlock = css.slice(css.indexOf("@media (max-width: 600px)"));
+    assert.match(
+      mobileBlock,
+      /\.weather-panel\s*\{[^}]*bottom: 10px;[^}]*gap: 4px;[^}]*max-width: calc\(100vw - 20px\);[^}]*--weather-tile-height: 44px;/s
+    );
+    assert.match(
+      css,
+      /@media \(max-width: 360px\)\s*\{[\s\S]*?\.weather-panel\s*\{[^}]*--weather-tile-height: 36px;/
+    );
+    assert.match(
+      css,
+      /\.weather-tile\s*\{[^}]*flex: 0 0 var\(--weather-tile-height\);/s
+    );
+    assert.match(
+      css,
+      /\.weather-tile--wide\s*\{[^}]*flex-basis: calc\(var\(--weather-tile-height\) \* 2\);/s
+    );
+  });
+
   it("renders tile size from data and reuses the shared icon module for the gear and panel controls", async () => {
     const code = await source();
     assert.match(code, /from "\.\/icons\.js"/);

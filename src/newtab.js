@@ -23,7 +23,16 @@ import { createFavoritesStore, migrateLegacyFavorites } from "./favoritesStore.j
 import { fetchNews } from "./dtfApi.js";
 import { createQueueService } from "./queueService.js";
 import { createInitialState, createQueueStore } from "./queueStore.js";
-import { europeanAqiCategory, uvIndexLevel } from "./weatherApi.js";
+import { usAqiCategory, uvIndexLevel } from "./weatherApi.js";
+import {
+  formatPm25,
+  formatPrecipitation,
+  formatTemperature,
+  rainTone,
+  temperatureTone,
+  usAqiTone,
+  uvTone
+} from "./weatherPresentation.js";
 import { createWeatherService } from "./weatherService.js";
 import { createWeatherCacheStore, createWeatherLocationStore } from "./weatherStore.js";
 import {
@@ -56,6 +65,18 @@ function createNode(tagName, className, textContent) {
   }
 
   return node;
+}
+
+let tooltipIdSeq = 0;
+
+function createTooltip(triggerNode, text) {
+  triggerNode.dataset.tooltipTrigger = "";
+  const tooltip = createNode("div", "tooltip", text);
+  tooltip.id = `tooltip-${tooltipIdSeq++}`;
+  tooltip.setAttribute("role", "tooltip");
+  triggerNode.setAttribute("aria-describedby", tooltip.id);
+  triggerNode.appendChild(tooltip);
+  return tooltip;
 }
 
 function formatDate(epochSeconds) {
@@ -1119,35 +1140,73 @@ if (weatherRoot) {
     return form;
   }
 
-  function weatherMetricNode(label, value) {
-    const metric = createNode("div", "weather-metric");
-    metric.appendChild(createNode("span", "weather-metric__value", value));
-    metric.appendChild(createNode("span", "weather-metric__label", label));
-    return metric;
+  function createWeatherTile({ size, tone, primary, secondary = null, tooltipText }) {
+    const tile = createNode("div", `weather-tile weather-tile--${size}`);
+    tile.dataset.weatherTone = tone;
+    tile.tabIndex = 0;
+
+    const values = createNode("div", "weather-tile__values");
+    values.appendChild(createNode("span", "weather-tile__primary", primary));
+    if (secondary) {
+      values.appendChild(createNode("span", "weather-tile__secondary", secondary));
+    }
+    tile.appendChild(values);
+
+    createTooltip(tile, tooltipText);
+    return tile;
   }
 
-  function weatherAqiMetricNode(europeanAqi, pm2_5) {
-    const metric = createNode("div", "weather-metric");
-    metric.appendChild(
-      createNode("span", "weather-metric__value", europeanAqiCategory(europeanAqi))
-    );
-    metric.appendChild(createNode("span", "weather-metric__sub", `PM2.5 ${pm2_5}`));
-    metric.appendChild(createNode("span", "weather-metric__label", "Воздух"));
-    return metric;
-  }
+  function renderWeatherTiles(data) {
+    const tiles = createNode("div", "weather-tiles");
 
-  function renderWeatherMetrics(data) {
-    const metrics = createNode("div", "weather-metrics");
-    metrics.append(
-      weatherMetricNode("Температура", `${Math.round(data.temperature)}°`),
-      weatherMetricNode(
-        "УФ-индекс",
-        `${data.uvIndexMax} · ${uvIndexLevel(data.uvIndexMax)}`
-      ),
-      weatherMetricNode("Дождь сегодня", `${Math.round(data.precipitationProbabilityMax)}%`),
-      weatherAqiMetricNode(data.europeanAqi, data.pm2_5)
+    tiles.appendChild(
+      createWeatherTile({
+        size: "square",
+        tone: temperatureTone({
+          todayAt15: data.temperatureTodayAt15,
+          yesterdayAt15: data.temperatureYesterdayAt15
+        }),
+        primary: formatTemperature(data.temperature),
+        tooltipText: `Сейчас ${formatTemperature(data.temperature)}°. Сегодня в 15:00 — ${formatTemperature(data.temperatureTodayAt15)}°, вчера в 15:00 — ${formatTemperature(data.temperatureYesterdayAt15)}°.`
+      })
     );
-    return metrics;
+
+    const [rainPrimary, rainSecondary] = formatPrecipitation(
+      data.precipitationProbabilityMax,
+      data.precipitationStartHour
+    );
+    tiles.appendChild(
+      createWeatherTile({
+        size: "wide",
+        tone: rainTone(data.precipitationProbabilityMax),
+        primary: rainPrimary,
+        secondary: rainSecondary,
+        tooltipText: data.precipitationStartHour
+          ? `Максимальная вероятность дождя сегодня — ${rainPrimary}, ожидается с ${data.precipitationStartHour}.`
+          : `Вероятность дождя сегодня — ${rainPrimary}.`
+      })
+    );
+
+    tiles.appendChild(
+      createWeatherTile({
+        size: "wide",
+        tone: usAqiTone(data.usAqi),
+        primary: String(data.usAqi),
+        secondary: `${formatPm25(data.pm2_5)} PM2.5`,
+        tooltipText: `US AQI ${data.usAqi} (${usAqiCategory(data.usAqi)}), PM2.5 ${formatPm25(data.pm2_5)} µg/m³.`
+      })
+    );
+
+    tiles.appendChild(
+      createWeatherTile({
+        size: "square",
+        tone: uvTone(data.uvIndexMax),
+        primary: String(data.uvIndexMax),
+        tooltipText: `Максимальный УФ-индекс сегодня — ${data.uvIndexMax} (${uvIndexLevel(data.uvIndexMax)}).`
+      })
+    );
+
+    return tiles;
   }
 
   function renderWeather() {
@@ -1186,28 +1245,22 @@ if (weatherRoot) {
 
     const { status, data, error } = weatherResult;
 
-    const heading = createNode("div", "weather-heading");
-    heading.appendChild(createNode("h2", "title", location.name));
-
-    const editButton = createNode("button", "icon-button");
-    editButton.type = "button";
-    editButton.dataset.weatherAction = "edit-city";
-    editButton.setAttribute("aria-label", "Изменить город");
-    editButton.appendChild(createIconNode("pencil"));
-    heading.appendChild(editButton);
-
-    fragment.appendChild(heading);
-
-    if (location.country) {
-      fragment.appendChild(createNode("p", "meta", location.country));
-    }
+    const gear = createNode("button", "favorite-settings");
+    gear.type = "button";
+    gear.dataset.weatherAction = "edit-city";
+    gear.setAttribute("aria-label", "Изменить город");
+    gear.appendChild(createIconNode("settings", { size: 20 }));
 
     if (status === "ready" || status === "stale") {
-      fragment.appendChild(renderWeatherMetrics(data));
+      fragment.appendChild(renderWeatherTiles(data));
     }
 
+    fragment.appendChild(gear);
+
     if (status === "stale") {
-      fragment.appendChild(createStatus("Не удалось обновить"));
+      const staleStatus = createStatus("Не удалось обновить");
+      staleStatus.classList.add("weather-status");
+      fragment.appendChild(staleStatus);
     }
 
     if (status === "error") {
