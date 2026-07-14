@@ -37,6 +37,7 @@ export function createWeatherService({
       locationName: location.name,
       fetchedAt: now(),
       temperature: weather.temperature,
+      uvIndex: weather.uvIndex,
       uvIndexMax: weather.uvIndexMax,
       precipitationProbabilityMax: weather.precipitationProbabilityMax,
       temperatureTodayAt15: weather.temperatureTodayAt15,

@@ -4,7 +4,7 @@ export const WEATHER_LOCATION_STORAGE_KEY = "dtfWeatherLocation";
 export const WEATHER_CACHE_STORAGE_KEY = "dtfWeatherCache";
 
 const WEATHER_LOCATION_VERSION = 1;
-const WEATHER_CACHE_VERSION = 2;
+const WEATHER_CACHE_VERSION = 3;
 
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -30,6 +30,7 @@ export function isWeatherCache(value) {
     "locationName",
     "fetchedAt",
     "temperature",
+    "uvIndex",
     "uvIndexMax",
     "precipitationProbabilityMax",
     "temperatureTodayAt15",
@@ -47,6 +48,7 @@ export function isWeatherCache(value) {
     isNonEmptyString(value.locationName) &&
     isFiniteNumber(value.fetchedAt) &&
     isFiniteNumber(value.temperature) &&
+    isFiniteNumber(value.uvIndex) &&
     isFiniteNumber(value.uvIndexMax) &&
     isFiniteNumber(value.precipitationProbabilityMax) &&
     isFiniteNumber(value.temperatureTodayAt15) &&

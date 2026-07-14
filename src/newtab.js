@@ -1207,9 +1207,9 @@ if (weatherRoot) {
     tiles.appendChild(
       createWeatherTile({
         size: "square",
-        tone: uvTone(data.uvIndexMax),
-        primary: String(data.uvIndexMax),
-        tooltipText: `Максимальный УФ-индекс сегодня — ${data.uvIndexMax} (${uvIndexLevel(data.uvIndexMax)}).`
+        tone: uvTone(data.uvIndex),
+        primary: String(data.uvIndex),
+        tooltipText: `Сейчас УФ-индекс ${data.uvIndex} (${uvIndexLevel(data.uvIndex)}). Максимум сегодня — ${data.uvIndexMax} (${uvIndexLevel(data.uvIndexMax)}).`
       })
     );
 

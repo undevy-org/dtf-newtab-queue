@@ -103,7 +103,7 @@ describe("newtab weather source", () => {
     );
     assert.match(
       tiles,
-      /Максимальный УФ-индекс сегодня — \$\{data\.uvIndexMax\} \(\$\{uvIndexLevel\(data\.uvIndexMax\)\}\)\./
+      /Сейчас УФ-индекс \$\{data\.uvIndex\} \(\$\{uvIndexLevel\(data\.uvIndex\)\}\)\. Максимум сегодня — \$\{data\.uvIndexMax\} \(\$\{uvIndexLevel\(data\.uvIndexMax\)\}\)\./
     );
   });
 

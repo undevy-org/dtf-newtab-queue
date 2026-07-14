@@ -148,7 +148,7 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
   const url = new URL(FORECAST_ENDPOINT);
   url.searchParams.set("latitude", String(latitude));
   url.searchParams.set("longitude", String(longitude));
-  url.searchParams.set("current", "temperature_2m");
+  url.searchParams.set("current", "temperature_2m,uv_index");
   url.searchParams.set("daily", "uv_index_max");
   url.searchParams.set("hourly", "temperature_2m,precipitation_probability");
   url.searchParams.set("past_days", "1");
@@ -166,10 +166,12 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
 
   const body = await parseJson(response, url.toString(), "Open-Meteo forecast");
   const temperature = body?.current?.temperature_2m;
+  const uvIndex = body?.current?.uv_index;
   const dailyDates = body?.daily?.time;
   const dailyUvIndexMax = body?.daily?.uv_index_max;
 
   assertFiniteField(temperature, "current.temperature_2m", { url: url.toString() });
+  assertFiniteField(uvIndex, "current.uv_index", { url: url.toString() });
 
   if (!Array.isArray(dailyDates) || dailyDates.length === 0) {
     throw new WeatherApiError("Open-Meteo response is missing daily.time", {
@@ -218,6 +220,7 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
     temperature,
     temperatureTodayAt15,
     temperatureYesterdayAt15,
+    uvIndex,
     uvIndexMax,
     precipitationProbabilityMax,
     precipitationStartHour

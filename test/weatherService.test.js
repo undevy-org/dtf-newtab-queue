@@ -10,6 +10,7 @@ const WEATHER_READING = {
   temperature: 24,
   temperatureTodayAt15: 26.7,
   temperatureYesterdayAt15: 25.2,
+  uvIndex: 5.4,
   uvIndexMax: 6.1,
   precipitationProbabilityMax: 20,
   precipitationStartHour: "17:00"

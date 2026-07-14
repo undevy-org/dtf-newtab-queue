@@ -25,6 +25,7 @@ function cache(overrides = {}) {
     locationName: "Тбилиси",
     fetchedAt: 1783900000000,
     temperature: 24,
+    uvIndex: 5.4,
     uvIndexMax: 6.1,
     precipitationProbabilityMax: 20,
     temperatureTodayAt15: 26.7,
@@ -93,7 +94,7 @@ describe("createWeatherCacheStore", () => {
     const store = createWeatherCacheStore(storageArea);
 
     const saved = await store.setCache(cache());
-    assert.equal(saved.version, 2);
+    assert.equal(saved.version, 3);
 
     const read = await store.getCache();
     assert.deepEqual(read, saved);
@@ -133,9 +134,18 @@ describe("createWeatherCacheStore", () => {
     assert.equal(await store.getCache(), null);
   });
 
-  it("treats a stored v2 cache with an invalid precipitation hour as absent", async () => {
+  it("treats a stored v2 cache as absent", async () => {
     const storageArea = createMemoryStorageArea({
-      [WEATHER_CACHE_STORAGE_KEY]: { version: 2, ...cache({ precipitationStartHour: "17:30" }) }
+      [WEATHER_CACHE_STORAGE_KEY]: { version: 2, ...cache() }
+    });
+    const store = createWeatherCacheStore(storageArea);
+
+    assert.equal(await store.getCache(), null);
+  });
+
+  it("treats a stored v3 cache with an invalid precipitation hour as absent", async () => {
+    const storageArea = createMemoryStorageArea({
+      [WEATHER_CACHE_STORAGE_KEY]: { version: 3, ...cache({ precipitationStartHour: "17:30" }) }
     });
     const store = createWeatherCacheStore(storageArea);
 
@@ -146,7 +156,7 @@ describe("createWeatherCacheStore", () => {
 describe("isWeatherLocation / isWeatherCache", () => {
   it("accepts well-formed values", () => {
     assert.equal(isWeatherLocation({ version: 1, ...location() }), true);
-    assert.equal(isWeatherCache({ version: 2, ...cache() }), true);
+    assert.equal(isWeatherCache({ version: 3, ...cache() }), true);
   });
 
   it("rejects non-finite coordinates and metrics", () => {
@@ -155,7 +165,7 @@ describe("isWeatherLocation / isWeatherCache", () => {
       false
     );
     assert.equal(
-      isWeatherCache({ version: 2, ...cache({ temperature: Number.NaN }) }),
+      isWeatherCache({ version: 3, ...cache({ temperature: Number.NaN }) }),
       false
     );
   });
@@ -163,7 +173,7 @@ describe("isWeatherLocation / isWeatherCache", () => {
   it("rejects cache records with missing or extra own fields", () => {
     const { usAqi, ...missingUsAqi } = cache();
 
-    assert.equal(isWeatherCache({ version: 2, ...missingUsAqi }), false);
-    assert.equal(isWeatherCache({ version: 2, ...cache(), unexpected: true }), false);
+    assert.equal(isWeatherCache({ version: 3, ...missingUsAqi }), false);
+    assert.equal(isWeatherCache({ version: 3, ...cache(), unexpected: true }), false);
   });
 });

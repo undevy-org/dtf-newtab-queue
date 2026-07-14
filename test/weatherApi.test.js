@@ -26,7 +26,7 @@ describe("fetchWeather", () => {
     const fetchImpl = async (url) => {
       calls.push(url);
       return response({
-        current: { temperature_2m: 26.7 },
+        current: { temperature_2m: 26.7, uv_index: 3.2 },
         daily: { time: ["2026-07-12", "2026-07-13"], uv_index_max: [4.4, 7.7] },
         hourly: {
           time: [
@@ -51,7 +51,7 @@ describe("fetchWeather", () => {
     );
     assert.equal(requestedUrl.searchParams.get("latitude"), "41.72");
     assert.equal(requestedUrl.searchParams.get("longitude"), "44.78");
-    assert.equal(requestedUrl.searchParams.get("current"), "temperature_2m");
+    assert.equal(requestedUrl.searchParams.get("current"), "temperature_2m,uv_index");
     assert.equal(requestedUrl.searchParams.get("daily"), "uv_index_max");
     assert.equal(
       requestedUrl.searchParams.get("hourly"),
@@ -64,6 +64,7 @@ describe("fetchWeather", () => {
       temperature: 26.7,
       temperatureTodayAt15: 27,
       temperatureYesterdayAt15: 29,
+      uvIndex: 3.2,
       uvIndexMax: 7.7,
       precipitationProbabilityMax: 90,
       precipitationStartHour: "17:00"
@@ -73,7 +74,7 @@ describe("fetchWeather", () => {
   it("returns zero precipitation probability and no noticeable precipitation start hour", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7 },
+        current: { temperature_2m: 26.7, uv_index: 3.2 },
         daily: { time: ["2026-07-13"], uv_index_max: [7.7] },
         hourly: {
           time: ["2026-07-12T15:00", "2026-07-13T00:00", "2026-07-13T15:00"],
@@ -110,7 +111,7 @@ describe("fetchWeather", () => {
 
   it("throws WeatherApiError when the daily local date is missing", async () => {
     const fetchImpl = async () =>
-      response({ current: { temperature_2m: 26.7 }, daily: { uv_index_max: [7.7] } });
+      response({ current: { temperature_2m: 26.7, uv_index: 3.2 }, daily: { uv_index_max: [7.7] } });
 
     await assert.rejects(
       () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
@@ -121,7 +122,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when the daily local date is blank", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7 },
+        current: { temperature_2m: 26.7, uv_index: 3.2 },
         daily: { time: [""], uv_index_max: [7.7] }
       });
 
@@ -134,7 +135,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when an earlier daily date is blank", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7 },
+        current: { temperature_2m: 26.7, uv_index: 3.2 },
         daily: {
           time: ["", "2026-07-13"],
           uv_index_max: [4.4, 7.7]
@@ -150,7 +151,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when an earlier daily UV value is missing", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7 },
+        current: { temperature_2m: 26.7, uv_index: 3.2 },
         daily: {
           time: ["2026-07-12", "2026-07-13"],
           uv_index_max: [undefined, 7.7]
@@ -166,7 +167,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when daily dates and UV values are misaligned", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7 },
+        current: { temperature_2m: 26.7, uv_index: 3.2 },
         daily: {
           time: ["2026-07-12", "2026-07-13"],
           uv_index_max: [4.4]

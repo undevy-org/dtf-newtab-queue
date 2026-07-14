@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Weather now uses a viewport-pinned toolbar, Russian-labelled US AQI/PM2.5
   readings, rain timing, continuous UV-colour boundaries, and a fixed news
   action footer.
+- The UV tile now shows the current UV reading (`current.uv_index` from
+  Open-Meteo) as its primary value and colour, matching how the temperature
+  tile leads with "now"; today's daily maximum moved into the tooltip
+  alongside the current reading. The cached weather schema gained a
+  `uvIndex` field (cache version 2 → 3), so any previously cached reading is
+  treated as absent and refetched once on the next load.
 - Queue reading-progress remains on `chrome.storage.local` only; it is not
   part of this sync.
 
