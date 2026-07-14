@@ -30,7 +30,6 @@ describe("newtab favorites source", () => {
     assert.doesNotMatch(code, /createFavoriteAddButton/);
     assert.match(code, /data-favorite-action/);
     assert.match(code, /"open-settings"/);
-    assert.match(code, /"close-settings"/);
   });
 
   it("renders the toolbar and the settings panel into separate roots", async () => {
@@ -200,13 +199,22 @@ describe("newtab favorites source", () => {
   it("gives every panel action button a leading icon instead of bare text", async () => {
     const code = await source();
     assert.match(code, /createIconButton\("button button--primary", "Добавить ссылку", "plus"\)/);
-    assert.match(code, /createIconButton\("button", "Готово", "check"\)/);
     assert.match(code, /createIconButton\("button button--danger", "Удалить", "trash2"\)/);
   });
 
   it("drops the dead min-width already overridden for every .favorite-input use site", async () => {
     const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
     assert.doesNotMatch(css, /min-width: min\(320px, 100%\);/);
+  });
+
+  it("drops the dead close-settings button — Escape and an outside click already close the panel", async () => {
+    const code = await source();
+    assert.doesNotMatch(code, /"close-settings"/);
+    assert.doesNotMatch(code, /createIconButton\("button", "Готово", "check"\)/);
+    assert.doesNotMatch(code, /favorites-panel__footer/);
+
+    const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
+    assert.doesNotMatch(css, /\.favorites-panel__footer/);
   });
 
   it("links each form row's label to its control for assistive tech", async () => {

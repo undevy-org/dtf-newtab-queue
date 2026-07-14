@@ -831,13 +831,6 @@ function renderFavoritesPanel() {
   });
   fragment.appendChild(listWrap);
 
-  const footer = createNode("div", "favorites-panel__footer");
-  const done = createIconButton("button", "Готово", "check");
-  done.type = "button";
-  done.dataset.favoriteAction = "close-settings";
-  footer.appendChild(done);
-  fragment.appendChild(footer);
-
   if (favoritesError) {
     fragment.appendChild(
       createStatus(favoritesError, { error: true, live: "assertive" })
@@ -923,11 +916,6 @@ if (favoritesRoot) {
     if (action === "open-settings") {
       favoritesUi = openSettings(favoritesUi);
       favoritesError = "";
-      renderFavorites();
-    } else if (action === "close-settings") {
-      favoritesUi = closeSettings(favoritesUi);
-      favoritesError = "";
-      pendingGearFocus = true;
       renderFavorites();
     } else if (action === "start-add") {
       favoritesUi = startAdd(favoritesUi);

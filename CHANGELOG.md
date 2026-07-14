@@ -47,11 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alongside the current reading. The cached weather schema gained a
   `uvIndex` field (cache version 2 → 3), so any previously cached reading is
   treated as absent and refetched once on the next load.
-- The favorites settings panel no longer scrolls as one block: the header,
-  the open add/edit form, and the "Готово" footer now stay fixed, and only
-  the link list in between scrolls when it overflows the panel's max height.
+- The favorites settings panel no longer scrolls as one block: the header
+  and the open add/edit form now stay fixed, and only the link list below
+  them scrolls when it overflows the panel's max height.
 - Queue reading-progress remains on `chrome.storage.local` only; it is not
   part of this sync.
+
+### Removed
+
+- The "Готово" button that closed the favorites settings panel. Escape and
+  clicking outside the panel already closed it and returned focus to the
+  settings gear the same way, so the button was a redundant third path; its
+  dead `close-settings` click action and the now-empty
+  `.favorites-panel__footer` styling were dropped along with it.
 
 ## [0.3.0] - 2026-07-12
 

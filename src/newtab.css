@@ -261,13 +261,6 @@ body {
   gap: 6px;
 }
 
-.favorites-panel__footer {
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
 .icon-button {
   display: inline-flex;
   align-items: center;
