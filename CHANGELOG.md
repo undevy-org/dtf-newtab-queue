@@ -47,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alongside the current reading. The cached weather schema gained a
   `uvIndex` field (cache version 2 → 3), so any previously cached reading is
   treated as absent and refetched once on the next load.
+- The favorites settings panel no longer scrolls as one block: the header,
+  the open add/edit form, and the "Готово" footer now stay fixed, and only
+  the link list in between scrolls when it overflows the panel's max height.
 - Queue reading-progress remains on `chrome.storage.local` only; it is not
   part of this sync.
 
