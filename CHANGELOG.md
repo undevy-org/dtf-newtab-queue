@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The loading, "read everything fresh", and "read everything including
+  archive" news-card states now show a centered icon badge above the
+  message instead of a large empty gap — the news card's title always
+  reserves 3 lines of height so real headlines never resize the card, but
+  these three states only ever show a short, one-line static message, so
+  the reservation used to sit empty. The loading icon spins, and freezes
+  automatically if the system's "reduce motion" preference is on.
 - A weather panel now renders below the news card: current temperature, UV
   index (with a WHO-scale level label), today's rain probability, and
   European Air Quality Index with PM2.5 — all sourced from Open-Meteo's
