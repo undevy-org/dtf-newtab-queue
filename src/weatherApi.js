@@ -114,6 +114,8 @@ export function summarizeHourlyForecast({ today, time, temperatures, probabiliti
     timestamp: yesterdayAt15
   });
 
+  assertLocalTimestamp(currentTime, "current.time", {});
+
   const currentHourTimestamp = `${currentTime.slice(0, 13)}:00`;
 
   const remainingHoursToday = (Array.isArray(time) ? time : [])

@@ -64,6 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   holds even when the browser and the chosen city are in different
   timezones. No cache-schema change — only how the existing
   `precipitationProbabilityMax`/`precipitationStartHour` fields are computed.
+  The rain tooltip's wording changed to match: "Вероятность дождя до конца
+  дня" (until end of day) instead of "Максимальная вероятность дождя
+  сегодня" (today's maximum), since the number it describes is no longer
+  necessarily today's peak once an earlier window has already passed.
 - The favorites settings panel no longer scrolls as one block: the header
   and the open add/edit form now stay fixed, and only the link list below
   them scrolls when it overflows the panel's max height.

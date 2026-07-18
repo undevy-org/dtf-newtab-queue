@@ -94,9 +94,9 @@ describe("newtab weather source", () => {
     );
     assert.match(
       tiles,
-      /Максимальная вероятность дождя сегодня — \$\{rainPrimary\}, ожидается с \$\{data\.precipitationStartHour\}\./
+      /Вероятность дождя до конца дня — \$\{rainPrimary\}, ожидается с \$\{data\.precipitationStartHour\}\./
     );
-    assert.match(tiles, /Вероятность дождя сегодня — \$\{rainPrimary\}\./);
+    assert.match(tiles, /Вероятность дождя до конца дня — \$\{rainPrimary\}\./);
     assert.match(
       tiles,
       /US AQI \$\{data\.usAqi\} \(\$\{usAqiCategory\(data\.usAqi\)\}\), PM2\.5 \$\{formatPm25\(data\.pm2_5\)\} µg\/m³\./

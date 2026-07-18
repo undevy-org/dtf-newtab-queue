@@ -1177,8 +1177,8 @@ if (weatherRoot) {
         primary: rainPrimary,
         secondary: rainSecondary,
         tooltipText: data.precipitationStartHour
-          ? `Максимальная вероятность дождя сегодня — ${rainPrimary}, ожидается с ${data.precipitationStartHour}.`
-          : `Вероятность дождя сегодня — ${rainPrimary}.`
+          ? `Вероятность дождя до конца дня — ${rainPrimary}, ожидается с ${data.precipitationStartHour}.`
+          : `Вероятность дождя до конца дня — ${rainPrimary}.`
       })
     );
 

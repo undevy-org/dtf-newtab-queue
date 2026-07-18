@@ -370,6 +370,17 @@ describe("summarizeHourlyForecast", () => {
     assert.equal(result.precipitationProbabilityMax, 0);
     assert.equal(result.precipitationStartHour, null);
   });
+
+  it("throws WeatherApiError when currentTime is missing or malformed", () => {
+    assert.throws(
+      () => summarizeHourlyForecast({ ...validHourlyForecast, currentTime: undefined }),
+      (error) => error instanceof WeatherApiError && error.details?.fieldName === "current.time"
+    );
+    assert.throws(
+      () => summarizeHourlyForecast({ ...validHourlyForecast, currentTime: "not-a-timestamp" }),
+      (error) => error instanceof WeatherApiError && error.details?.fieldName === "current.time"
+    );
+  });
 });
 
 describe("fetchAirQuality", () => {
