@@ -87,7 +87,7 @@ any code changes happen, verify the handoff actually completed, then have a
 fresh, independent agent (no memory of how this plan was produced) check
 the plan itself for drift and internal errors.
 
-- [ ] **Step 1: Verify the repository is ready for this plan to begin**
+- [x] **Step 1: Verify the repository is ready for this plan to begin**
 
 Run each of these and confirm the stated expectation — if any fails, **stop
 here and report the specific failing condition to the human; do not
@@ -126,7 +126,7 @@ preserve. If this is red before any of this plan's code has been touched,
 stop and report it — it is not this plan's job to fix a pre-existing
 regression from other work.
 
-- [ ] **Step 2: Dispatch an independent review agent**
+- [x] **Step 2: Dispatch an independent review agent**
 
 Once Step 1 passes cleanly, dispatch a fresh subagent with this exact task
 (it should only need Read/Grep/Bash-for-reading — no code changes, no
@@ -180,7 +180,7 @@ numbered list of specific required fixes, each one quoting the exact plan
 text that is wrong and what needs to change.
 ```
 
-- [ ] **Step 3: Apply any required fixes**
+- [x] **Step 3: Apply any required fixes**
 
 If the review reports required fixes, edit
 `docs/superpowers/plans/2026-07-12-milestone-state-icons.md` to correct
@@ -189,7 +189,7 @@ the current location of the equivalent code, and update the citation and
 quoted snippet. A logic/consistency/arithmetic error: fix the plan's text
 and code snippet, keeping the rest of the task intact.
 
-- [ ] **Step 4: Re-review if the fix was non-trivial**
+- [x] **Step 4: Re-review if the fix was non-trivial**
 
 A pure anchor-text correction (the code itself is unchanged, just found at
 a different location) does not need a second pass. Anything that changed a
@@ -197,7 +197,7 @@ code snippet's actual content (not just where it was found) gets one more
 review round with the same agent prompt as Step 2, restricted to the
 sections that changed.
 
-- [ ] **Step 5: Reset the progress ledger, then proceed**
+- [x] **Step 5: Reset the progress ledger, then proceed**
 
 Check `.superpowers/sdd/progress.md`. If it references a different,
 already-complete plan (very likely — the weather-widget plan almost
@@ -244,7 +244,7 @@ git commit -m "docs: correct plan drift found by independent pre-execution revie
   `"icon " + className` instead of just `"icon"`.
 - Consumes: nothing from other tasks.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `test/icons.test.js`, find this exact block:
 
@@ -314,14 +314,14 @@ Replace it with:
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `node --test test/icons.test.js`
 Expected: FAIL — `ICON_PATHS.checkCheck` / `ICON_PATHS.loaderCircle` don't
 exist yet (first test fails), and the className support doesn't exist yet
 (new last test fails).
 
-- [ ] **Step 3: Add the two new icons and the className option**
+- [x] **Step 3: Add the two new icons and the className option**
 
 In `src/icons.js`, find this exact block:
 
@@ -369,17 +369,17 @@ export function createIconNode(name, { size = 18, className = "" } = {}) {
   wrapper.setAttribute("aria-hidden", "true");
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `node --test test/icons.test.js`
 Expected: PASS
 
-- [ ] **Step 5: Run the full suite and the syntax check**
+- [x] **Step 5: Run the full suite and the syntax check**
 
 Run: `npm test && npm run check`
 Expected: all green.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/icons.js test/icons.test.js
@@ -407,7 +407,7 @@ git commit -m "feat: add checkCheck/loaderCircle icons and a className option on
   `icon = null` and `iconSpin = false`. No other task depends on these —
   this is the last functional task; Task 3 is verification only.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `test/newtabSource.test.js`, add this test right after the file's last
 test (`"caps meta and status text at 2 lines..."`, immediately before the
@@ -476,13 +476,13 @@ closing `});` of the `describe` block):
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `node --test test/newtabSource.test.js`
 Expected: FAIL — none of `createMilestoneTitleNode`, the `icon`/`iconSpin`
 options, or the new CSS rules exist yet.
 
-- [ ] **Step 3: Add `createMilestoneTitleNode` to `src/newtab.js`**
+- [x] **Step 3: Add `createMilestoneTitleNode` to `src/newtab.js`**
 
 Find this exact block:
 
@@ -520,7 +520,7 @@ function createMilestoneTitleNode(title, iconName, { spin = false } = {}) {
 }
 ```
 
-- [ ] **Step 4: Wire `icon`/`iconSpin` into `renderShell`**
+- [x] **Step 4: Wire `icon`/`iconSpin` into `renderShell`**
 
 Find this exact block:
 
@@ -593,7 +593,7 @@ Replace it with:
 machinery (built for real, possibly-truncated headlines) never runs for
 these three static, always-one-line strings.
 
-- [ ] **Step 5: Pass `icon`/`iconSpin` from the three milestone states**
+- [x] **Step 5: Pass `icon`/`iconSpin` from the three milestone states**
 
 Find this exact block:
 
@@ -695,7 +695,7 @@ function renderFork(error = null, busyMessage = "") {
 has no `icon` option passed, so it keeps rendering through the original
 `createTitleNode` / `attachTruncatedTitlePopover` path unchanged.
 
-- [ ] **Step 6: Add the milestone-header CSS**
+- [x] **Step 6: Add the milestone-header CSS**
 
 In `src/newtab.css`, find this exact block:
 
@@ -779,7 +779,7 @@ plan) was measured against. `.milestone-title` also declares
 self-contained rather than relying on inherited values — both rules stay
 readable on their own.
 
-- [ ] **Step 7: Add the mobile overrides**
+- [x] **Step 7: Add the mobile overrides**
 
 In `src/newtab.css`, inside the existing `@media (max-width: 600px)`
 block, find this exact block:
@@ -829,17 +829,17 @@ mobile because the reserved height itself shrinks at the smaller
 under the ≈80.5px reservation. Keeping the desktop 52px badge at the
 mobile font-size would push the row past its own reservation.
 
-- [ ] **Step 8: Run the tests to verify they pass**
+- [x] **Step 8: Run the tests to verify they pass**
 
 Run: `node --test test/newtabSource.test.js`
 Expected: PASS
 
-- [ ] **Step 9: Run the full suite and the syntax check**
+- [x] **Step 9: Run the full suite and the syntax check**
 
 Run: `npm test && npm run check`
 Expected: all green.
 
-- [ ] **Step 10: Manual check**
+- [x] **Step 10: Manual check**
 
 Load the unpacked extension (`chrome://extensions` → reload → open a new
 tab). For each of these three states — the initial loading screen, "read
@@ -860,7 +860,7 @@ several real cards and confirm `renderCard`'s own title/popover behavior
 left-aligned, up-to-3-line title with the hover/focus popover on
 truncation.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src/newtab.js src/newtab.css test/newtabSource.test.js
@@ -878,17 +878,17 @@ git commit -m "feat: give loading/fork/archive-ended states a centered icon badg
 - Consumes: the fully working feature from Tasks 1–2.
 - Produces: nothing further consumed by other tasks — this is the final task.
 
-- [ ] **Step 1: Run the whole suite one more time**
+- [x] **Step 1: Run the whole suite one more time**
 
 Run: `npm test && npm run check`
 Expected: all green.
 
-- [ ] **Step 2: Load the unpacked extension fresh**
+- [x] **Step 2: Load the unpacked extension fresh**
 
 In Chrome, go to `chrome://extensions`, reload the unpacked
 `dtf-newtab-queue` extension, and open a brand-new tab.
 
-- [ ] **Step 3: Walk the full matrix**
+- [x] **Step 3: Walk the full matrix**
 
 - Loading, fork, and (if reachable) archive-ended states all show a
   centered icon badge + title, and the card is the exact same height as an
@@ -901,7 +901,7 @@ In Chrome, go to `chrome://extensions`, reload the unpacked
   keyboard-focus popover still works for any title that clamps. No icon
   badge ever appears on a real card.
 
-- [ ] **Step 4: Add the CHANGELOG entry**
+- [x] **Step 4: Add the CHANGELOG entry**
 
 In `CHANGELOG.md`, find this exact block:
 
@@ -926,16 +926,29 @@ reorder or remove them):
   automatically if the system's "reduce motion" preference is on.
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add CHANGELOG.md
 git commit -m "docs: changelog entry for milestone-state icon badges"
 ```
 
-- [ ] **Step 6: Report results**
+- [x] **Step 6: Report results**
 
 If every item in Step 3 matches expectations, this plan is done. If
 anything doesn't match, note which specific item and which task it traces
 back to (Task 1 = the new icons, Task 2 = the milestone header wiring and
 CSS) before making further changes.
+
+## Result
+
+Plan complete. Tasks 0–2 committed (997275e..a750c85..fddb0de, plus fix
+1b17b55 for a review finding on Task 2's icon-mapping test scoping — see
+that commit and its review for detail). Task 3 closed in two parts: a
+background session ran Steps 1, 4, and 5 (suite green, CHANGELOG bullet
+added verbatim per Step 4, commit `46dd126`) and substituted a synthetic
+local harness for Steps 2–3 since the real extension page is sandboxed
+from automation — it explicitly flagged that substitution as unverified.
+The user then performed the actual Step 2–3 walkthrough by hand in a real
+loaded extension and confirmed everything matches (all three states
+correctly badged and sized, real cards untouched). All 6 steps satisfied.
