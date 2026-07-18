@@ -26,7 +26,7 @@ describe("fetchWeather", () => {
     const fetchImpl = async (url) => {
       calls.push(url);
       return response({
-        current: { temperature_2m: 26.7, uv_index: 3.2 },
+        current: { temperature_2m: 26.7, uv_index: 3.2, time: "2026-07-13T00:00" },
         daily: { time: ["2026-07-12", "2026-07-13"], uv_index_max: [4.4, 7.7] },
         hourly: {
           time: [
@@ -74,12 +74,37 @@ describe("fetchWeather", () => {
   it("returns zero precipitation probability and no noticeable precipitation start hour", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7, uv_index: 3.2 },
+        current: { temperature_2m: 26.7, uv_index: 3.2, time: "2026-07-13T00:00" },
         daily: { time: ["2026-07-13"], uv_index_max: [7.7] },
         hourly: {
           time: ["2026-07-12T15:00", "2026-07-13T00:00", "2026-07-13T15:00"],
           temperature_2m: [29, 22, 27],
           precipitation_probability: [0, 0, 0]
+        }
+      });
+
+    const result = await fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl });
+
+    assert.equal(result.precipitationProbabilityMax, 0);
+    assert.equal(result.precipitationStartHour, null);
+  });
+
+  it("recalculates today's rain probability against the current hour, not the whole day", async () => {
+    const fetchImpl = async () =>
+      response({
+        current: { temperature_2m: 18.4, uv_index: 0, time: "2026-07-18T06:42" },
+        daily: { time: ["2026-07-17", "2026-07-18"], uv_index_max: [3.1, 2.8] },
+        hourly: {
+          time: [
+            "2026-07-17T15:00",
+            "2026-07-18T00:00",
+            "2026-07-18T01:00",
+            "2026-07-18T06:00",
+            "2026-07-18T15:00",
+            "2026-07-18T23:00"
+          ],
+          temperature_2m: [24, 17, 17, 18, 22, 18],
+          precipitation_probability: [0, 90, 60, 0, 0, 0]
         }
       });
 
@@ -109,9 +134,30 @@ describe("fetchWeather", () => {
     );
   });
 
+  it("throws WeatherApiError when current.time is missing", async () => {
+    const fetchImpl = async () =>
+      response({
+        current: { temperature_2m: 26.7, uv_index: 3.2 },
+        daily: { time: ["2026-07-13"], uv_index_max: [7.7] },
+        hourly: {
+          time: ["2026-07-12T15:00", "2026-07-13T00:00", "2026-07-13T15:00"],
+          temperature_2m: [29, 22, 27],
+          precipitation_probability: [0, 0, 0]
+        }
+      });
+
+    await assert.rejects(
+      () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
+      (error) => error instanceof WeatherApiError && error.details?.fieldName === "current.time"
+    );
+  });
+
   it("throws WeatherApiError when the daily local date is missing", async () => {
     const fetchImpl = async () =>
-      response({ current: { temperature_2m: 26.7, uv_index: 3.2 }, daily: { uv_index_max: [7.7] } });
+      response({
+        current: { temperature_2m: 26.7, uv_index: 3.2, time: "2026-07-13T00:00" },
+        daily: { uv_index_max: [7.7] }
+      });
 
     await assert.rejects(
       () => fetchWeather({ latitude: 41.72, longitude: 44.78, fetchImpl }),
@@ -122,7 +168,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when the daily local date is blank", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7, uv_index: 3.2 },
+        current: { temperature_2m: 26.7, uv_index: 3.2, time: "2026-07-13T00:00" },
         daily: { time: [""], uv_index_max: [7.7] }
       });
 
@@ -135,7 +181,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when an earlier daily date is blank", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7, uv_index: 3.2 },
+        current: { temperature_2m: 26.7, uv_index: 3.2, time: "2026-07-13T00:00" },
         daily: {
           time: ["", "2026-07-13"],
           uv_index_max: [4.4, 7.7]
@@ -151,7 +197,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when an earlier daily UV value is missing", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7, uv_index: 3.2 },
+        current: { temperature_2m: 26.7, uv_index: 3.2, time: "2026-07-13T00:00" },
         daily: {
           time: ["2026-07-12", "2026-07-13"],
           uv_index_max: [undefined, 7.7]
@@ -167,7 +213,7 @@ describe("fetchWeather", () => {
   it("throws WeatherApiError when daily dates and UV values are misaligned", async () => {
     const fetchImpl = async () =>
       response({
-        current: { temperature_2m: 26.7, uv_index: 3.2 },
+        current: { temperature_2m: 26.7, uv_index: 3.2, time: "2026-07-13T00:00" },
         daily: {
           time: ["2026-07-12", "2026-07-13"],
           uv_index_max: [4.4]
@@ -199,6 +245,7 @@ describe("fetchWeather", () => {
 describe("summarizeHourlyForecast", () => {
   const validHourlyForecast = {
     today: "2026-07-13",
+    currentTime: "2026-07-13T00:00",
     time: [
       "2026-07-12T15:00",
       "2026-07-13T00:00",
@@ -257,6 +304,71 @@ describe("summarizeHourlyForecast", () => {
       () => summarizeHourlyForecast({ ...validHourlyForecast, probabilities }),
       WeatherApiError
     );
+  });
+
+  it("excludes hours before the current hour from precipitation calculations", () => {
+    const result = summarizeHourlyForecast({
+      ...validHourlyForecast,
+      currentTime: "2026-07-13T15:00",
+      probabilities: [0, 90, 0, 0]
+    });
+
+    assert.equal(result.precipitationProbabilityMax, 0);
+    assert.equal(result.precipitationStartHour, null);
+  });
+
+  it("keeps a later rain window that has not started yet", () => {
+    const result = summarizeHourlyForecast({
+      ...validHourlyForecast,
+      currentTime: "2026-07-13T15:00",
+      probabilities: [0, 90, 10, 80]
+    });
+
+    assert.equal(result.precipitationProbabilityMax, 80);
+    assert.equal(result.precipitationStartHour, "17:00");
+  });
+
+  it("treats the current hour itself as the earliest possible start", () => {
+    const result = summarizeHourlyForecast({
+      ...validHourlyForecast,
+      currentTime: "2026-07-13T15:00",
+      probabilities: [0, 50, 60, 0]
+    });
+
+    assert.equal(result.precipitationProbabilityMax, 60);
+    assert.equal(result.precipitationStartHour, "15:00");
+  });
+
+  it("rounds the current timestamp down to its hour bucket", () => {
+    const result = summarizeHourlyForecast({
+      ...validHourlyForecast,
+      currentTime: "2026-07-13T15:45",
+      probabilities: [0, 70, 60, 0]
+    });
+
+    assert.equal(result.precipitationProbabilityMax, 60);
+    assert.equal(result.precipitationStartHour, "15:00");
+  });
+
+  it("ignores non-finite probabilities for hours that have already passed", () => {
+    const result = summarizeHourlyForecast({
+      ...validHourlyForecast,
+      currentTime: "2026-07-13T15:00",
+      probabilities: [0, Number.NaN, 0, 40]
+    });
+
+    assert.equal(result.precipitationProbabilityMax, 40);
+    assert.equal(result.precipitationStartHour, "17:00");
+  });
+
+  it("defaults to zero probability when no hourly buckets remain for today", () => {
+    const result = summarizeHourlyForecast({
+      ...validHourlyForecast,
+      currentTime: "2026-07-13T19:00"
+    });
+
+    assert.equal(result.precipitationProbabilityMax, 0);
+    assert.equal(result.precipitationStartHour, null);
   });
 });
 

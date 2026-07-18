@@ -53,6 +53,15 @@ function assertFiniteField(value, fieldName, context) {
   }
 }
 
+function assertLocalTimestamp(value, fieldName, context) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+    throw new WeatherApiError(`Open-Meteo response is missing ${fieldName}`, {
+      fieldName,
+      ...context
+    });
+  }
+}
+
 function previousLocalDate(dateString) {
   const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
 
@@ -85,7 +94,7 @@ function hourlyTimestampIndex(time, timestamp) {
   return index;
 }
 
-export function summarizeHourlyForecast({ today, time, temperatures, probabilities }) {
+export function summarizeHourlyForecast({ today, time, temperatures, probabilities, currentTime }) {
   const yesterday = previousLocalDate(today);
   const todayAt15 = `${today}T15:00`;
   const yesterdayAt15 = `${yesterday}T15:00`;
@@ -105,25 +114,31 @@ export function summarizeHourlyForecast({ today, time, temperatures, probabiliti
     timestamp: yesterdayAt15
   });
 
-  const currentDayHours = (Array.isArray(time) ? time : [])
+  const currentHourTimestamp = `${currentTime.slice(0, 13)}:00`;
+
+  const remainingHoursToday = (Array.isArray(time) ? time : [])
     .map((timestamp, index) => ({
       timestamp,
       probability: Array.isArray(probabilities) ? probabilities[index] : undefined
     }))
     .filter(
       ({ timestamp }) =>
-        typeof timestamp === "string" && timestamp.startsWith(`${today}T`)
+        typeof timestamp === "string" &&
+        timestamp.startsWith(`${today}T`) &&
+        timestamp >= currentHourTimestamp
     );
 
-  for (const { timestamp, probability } of currentDayHours) {
+  for (const { timestamp, probability } of remainingHoursToday) {
     assertFiniteField(probability, "hourly.precipitation_probability", { timestamp });
   }
 
-  const precipitationProbabilityMax = Math.max(
-    ...currentDayHours.map(({ probability }) => probability)
-  );
+  const precipitationProbabilityMax =
+    remainingHoursToday.length > 0
+      ? Math.max(...remainingHoursToday.map(({ probability }) => probability))
+      : 0;
   const precipitationStartHour =
-    currentDayHours.find(({ probability }) => probability >= 30)?.timestamp.slice(11, 16) ?? null;
+    remainingHoursToday.find(({ probability }) => probability >= 30)?.timestamp.slice(11, 16) ??
+    null;
 
   return {
     temperatureTodayAt15,
@@ -167,11 +182,13 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
   const body = await parseJson(response, url.toString(), "Open-Meteo forecast");
   const temperature = body?.current?.temperature_2m;
   const uvIndex = body?.current?.uv_index;
+  const currentTime = body?.current?.time;
   const dailyDates = body?.daily?.time;
   const dailyUvIndexMax = body?.daily?.uv_index_max;
 
   assertFiniteField(temperature, "current.temperature_2m", { url: url.toString() });
   assertFiniteField(uvIndex, "current.uv_index", { url: url.toString() });
+  assertLocalTimestamp(currentTime, "current.time", { url: url.toString() });
 
   if (!Array.isArray(dailyDates) || dailyDates.length === 0) {
     throw new WeatherApiError("Open-Meteo response is missing daily.time", {
@@ -213,7 +230,8 @@ export async function fetchWeather({ latitude, longitude, fetchImpl = globalThis
     today,
     time: body?.hourly?.time,
     temperatures: body?.hourly?.temperature_2m,
-    probabilities: body?.hourly?.precipitation_probability
+    probabilities: body?.hourly?.precipitation_probability,
+    currentTime
   });
 
   return {

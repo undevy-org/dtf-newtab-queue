@@ -47,6 +47,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alongside the current reading. The cached weather schema gained a
   `uvIndex` field (cache version 2 → 3), so any previously cached reading is
   treated as absent and refetched once on the next load.
+- The rain tile now recalculates today's probability against the current
+  hour instead of the whole day: once an earlier rain window has already
+  passed with no more rain expected, the tile drops to 0% instead of
+  continuing to show that window's peak and its now-past start time.
+  Anchored to `current.time` from Open-Meteo (already returned whenever any
+  `current` variable is requested, in the same resolved local timezone as
+  the hourly forecast) rather than the browser clock, so the comparison
+  holds even when the browser and the chosen city are in different
+  timezones. No cache-schema change — only how the existing
+  `precipitationProbabilityMax`/`precipitationStartHour` fields are computed.
 - The favorites settings panel no longer scrolls as one block: the header
   and the open add/edit form now stay fixed, and only the link list below
   them scrolls when it overflows the panel's max height.
