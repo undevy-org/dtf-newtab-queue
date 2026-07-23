@@ -65,7 +65,7 @@ body {
   align-items: center;
   gap: 12px;
   width: fit-content;
-  max-width: min(920px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
   min-height: var(--toolbar-h);
   padding: 10px 12px;
   transform: translateX(-50%);
@@ -824,7 +824,6 @@ body {
 
   .favorites-bar {
     top: 10px;
-    max-width: calc(100vw - 20px);
     border-radius: 16px;
   }
 

@@ -122,6 +122,10 @@ describe("newtab favorites source", () => {
   it("lets the toolbar hug its content instead of a fixed width, and keeps the settings panel above it", async () => {
     const css = await readFile(new URL("../src/newtab.css", import.meta.url), "utf8");
     assert.match(css, /\.favorites-bar\s*\{[^}]*width: fit-content;/s);
+    assert.match(css, /\.favorites-bar\s*\{[^}]*max-width: calc\(100vw - 32px\);/s);
+    assert.doesNotMatch(css, /\.favorites-bar\s*\{[^}]*920px/s);
+    const mobileBlock = css.slice(css.indexOf("@media (max-width: 600px)"));
+    assert.doesNotMatch(mobileBlock, /\.favorites-bar\s*\{[^}]*max-width:/s);
     assert.match(css, /\.favorites-bar\s*\{[^}]*--favorite-tile-height: 52px;/s);
     assert.doesNotMatch(css, /\.favorites-grid\s*\{[^}]*--favorite-tile-height/s);
     assert.match(css, /\.favorites-panel\s*\{[^}]*z-index: 40;/s);
