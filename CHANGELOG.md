@@ -74,6 +74,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Queue reading-progress remains on `chrome.storage.local` only; it is not
   part of this sync.
 
+### Fixed
+
+- Forward catch-up ("Проверить новые" and the automatic check when the
+  backlog empties) now looks through up to 3 pages of DTF's feed instead of
+  giving up after the very first one. Previously, once more news had been
+  published than fit on a single API page, unread items pushed off page 1
+  became permanently stuck: the forward check only ever inspected page 1,
+  and "Глубже в архив" only pages *older* than the cursor set at the
+  first-ever fetch, so it never revisited that middle gap. The extension
+  could report "Вы прочитали всё свежее" while DTF's own feed still had
+  unread articles under "Показать ещё". The archive cursor (`lastId`) is
+  still never touched by a forward check, preserving your place in the
+  archive.
+- "Просмотрел" (`markViewed`) no longer silently un-dismisses the card it
+  just dismissed when the forward catch-up fetch that follows fails
+  mid-flight (e.g. a network error during the now up-to-3-page scan above).
+  The dismissal is persisted before the fetch starts, matching how "Открыть"
+  (`openCurrent`) already handles its own post-action fetch, so a failed
+  fetch surfaces a retryable error instead of reverting state and re-showing
+  the already-dismissed item as if the click never happened.
+
 ### Removed
 
 - The "Готово" button that closed the favorites settings panel. Escape and

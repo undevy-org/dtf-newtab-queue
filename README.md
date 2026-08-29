@@ -41,12 +41,14 @@ The extension reads `https://api.dtf.ru/v2.10/news` directly from the new tab pa
 
 No request is made while an existing card is simply displayed. A new request happens only when the backlog empties (a forward catch-up), when you press **Проверить новые** or **Глубже в архив**, or when you press **Сбросить**.
 
-When the backlog empties, the extension fetches the **first** page again and shows
-only headlines you have not seen yet — it does not crawl backward by default, so the
-queue can reach a real end. From the end screen you can press **Проверить новые** to
-re-check the top, or **Глубже в архив** to load one older page at a time. Forward
-checks never move the archive cursor, so stepping into the archive resumes from where
-you left off.
+When the backlog empties, the extension fetches the newest page and shows only
+headlines you have not seen yet; if that page turns out to be all-duplicate (more
+news was published since your last check than fits on one page), it keeps paging
+forward — up to 3 pages per check — until it finds something unread or genuinely
+runs out. It does not crawl backward by default, so the queue can reach a real end.
+From the end screen you can press **Проверить новые** to re-check the top, or
+**Глубже в архив** to load one older page at a time. Forward checks never move the
+archive cursor, so stepping into the archive resumes from where you left off.
 
 ## Permissions And Privacy
 

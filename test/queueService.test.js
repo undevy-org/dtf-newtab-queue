@@ -220,20 +220,24 @@ describe("queueService", () => {
         current: item(1),
         lastId: 100
       }),
-      batches: [{ items: [item(1)], lastId: 900 }]
+      batches: [
+        { items: [item(1)], lastId: 900 },
+        { items: [], lastId: null }
+      ]
     });
 
     const result = await service.markViewed();
     const stored = await store.getState();
 
     assert.equal(result.status, "idle");
-    assert.deepEqual(api.calls, [{}]);
+    assert.deepEqual(api.calls, [{}, { lastId: 900 }]);
     assert.equal(stored.current, null);
     assert.deepEqual(stored.seenIds, [1]);
     assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
     assert.deepEqual(stored.events.map((event) => event.type), [
       "dismissed",
+      "fetch",
       "fetch",
       "caught-up"
     ]);
@@ -265,6 +269,93 @@ describe("queueService", () => {
     assert.equal(stored.exhausted, false);
   });
 
+  it("markViewed pages past a full page of duplicates to find newer items further forward", async () => {
+    const { api, service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        seenIds: [2, 3],
+        lastId: 100
+      }),
+      batches: [
+        { items: [item(1), item(2), item(3)], lastId: 400 },
+        { items: [item(4), item(5)], lastId: 500 }
+      ]
+    });
+
+    const result = await service.markViewed();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.deepEqual(api.calls, [{}, { lastId: 400 }]);
+    assert.equal(stored.current.id, 4);
+    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [5]);
+    assert.deepEqual(stored.seenIds, [2, 3, 1]);
+    assert.equal(stored.lastId, 100);
+    assert.equal(stored.exhausted, false);
+  });
+
+  it("markViewed logs the actual cursor requested by each forward-scan page", async () => {
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        seenIds: [2, 3],
+        lastId: 100
+      }),
+      batches: [
+        { items: [item(1), item(2), item(3)], lastId: 400 },
+        { items: [item(4), item(5)], lastId: 500 }
+      ]
+    });
+
+    await service.markViewed();
+    const stored = await store.getState();
+
+    const fetchEvents = stored.events.filter((event) => event.type === "fetch");
+    assert.deepEqual(
+      fetchEvents.map((event) => event.details.requestedLastId),
+      [null, 400]
+    );
+  });
+
+  it("markViewed persists the dismissed transition while pagination is pending", async () => {
+    const fetchStarted = createDeferred();
+    const pendingBatch = createDeferred();
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        lastId: 100
+      }),
+      batches: [() => {
+        fetchStarted.resolve();
+        return pendingBatch.promise;
+      }]
+    });
+
+    const markViewedPromise = service.markViewed();
+    await fetchStarted.promise;
+    const pendingState = await store.getState();
+
+    assert.equal(pendingState.current, null);
+    assert.deepEqual(pendingState.backlog, []);
+    assert.deepEqual(pendingState.seenIds, [1]);
+    assert.equal(pendingState.lastId, 100);
+    assert.equal(pendingState.exhausted, false);
+    assert.deepEqual(pendingState.events.map((event) => event.type), ["dismissed"]);
+
+    pendingBatch.reject(new Error("network down"));
+    const result = await markViewedPromise;
+    const failedState = await store.getState();
+
+    assert.equal(result.status, "error");
+    assert.equal(failedState.current, null);
+    assert.deepEqual(failedState.seenIds, [1]);
+    assert.equal(failedState.lastId, 100);
+    assert.deepEqual(failedState.events.map((event) => event.type), [
+      "dismissed",
+      "error"
+    ]);
+  });
+
   it("retry shows the next backlog item without fetching when current is empty", async () => {
     const { api, service, store } = await createHarness({
       initialState: stateWith({
@@ -290,23 +381,29 @@ describe("queueService", () => {
     assert.deepEqual(stored.events.map((event) => event.type), ["shown"]);
   });
 
-  it("reaches the fork when the forward page has no usable new items", async () => {
-    const { service, store } = await createHarness({
+  it("reaches the fork after three duplicate-only forward pages, archive cursor untouched", async () => {
+    const { api, service, store } = await createHarness({
       initialState: stateWith({
         current: item(1),
-        seenIds: [2, 3],
+        seenIds: [2, 3, 4, 5, 6, 7],
         lastId: 100
       }),
-      batches: [{ items: [item(1), item(2), item(3)], lastId: 400 }]
+      batches: [
+        { items: [item(1), item(2), item(3)], lastId: 400 },
+        { items: [item(4), item(5)], lastId: 500 },
+        { items: [item(6), item(7)], lastId: 600 },
+        { items: [item(8)], lastId: 800 }
+      ]
     });
 
     const result = await service.markViewed();
     const stored = await store.getState();
 
     assert.equal(result.status, "idle");
+    assert.deepEqual(api.calls, [{}, { lastId: 400 }, { lastId: 500 }]);
     assert.equal(stored.current, null);
     assert.deepEqual(stored.backlog, []);
-    assert.deepEqual(stored.seenIds, [2, 3, 1]);
+    assert.deepEqual(stored.seenIds, [2, 3, 4, 5, 6, 7, 1]);
     assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
     assert.equal(stored.events.at(-1).type, "caught-up");
@@ -402,7 +499,7 @@ describe("queueService", () => {
     ]);
   });
 
-  it("cursorless retry stops at the first page (no forward pagination)", async () => {
+  it("cursorless retry pages forward until it finds new items or the feed truly ends", async () => {
     const { api, service, store } = await createHarness({
       initialState: stateWith({
         seenIds: [1, 2],
@@ -416,20 +513,24 @@ describe("queueService", () => {
           }
         ]
       }),
-      batches: [{ items: [item(1), item(2)], lastId: 100 }]
+      batches: [
+        { items: [item(1), item(2)], lastId: 100 },
+        { items: [], lastId: null }
+      ]
     });
 
     const result = await service.retry();
     const stored = await store.getState();
 
     assert.equal(result.status, "idle");
-    assert.deepEqual(api.calls, [{}]);
+    assert.deepEqual(api.calls, [{}, { lastId: 100 }]);
     assert.equal(stored.current, null);
     assert.deepEqual(stored.seenIds, [1, 2]);
     assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
     assert.deepEqual(stored.events.map((event) => event.type), [
       "empty",
+      "fetch",
       "fetch",
       "caught-up"
     ]);
@@ -744,7 +845,7 @@ describe("queueService", () => {
     assert.deepEqual(stored.events.map((event) => event.type), ["error"]);
   });
 
-  it("API errors keep prior queue data stable and return an error signal", async () => {
+  it("API errors preserve the dismissal and return an error signal", async () => {
     const originalState = stateWith({
       current: item(1),
       seenIds: [9],
@@ -760,12 +861,15 @@ describe("queueService", () => {
 
     assert.equal(result.status, "error");
     assert.equal(result.error, "network down");
-    assert.equal(stored.current.id, 1);
+    assert.equal(stored.current, null);
     assert.deepEqual(stored.backlog, []);
-    assert.deepEqual(stored.seenIds, [9]);
+    assert.deepEqual(stored.seenIds, [9, 1]);
     assert.equal(stored.lastId, 100);
     assert.equal(stored.exhausted, false);
-    assert.deepEqual(stored.events.map((event) => event.type), ["error"]);
+    assert.deepEqual(stored.events.map((event) => event.type), [
+      "dismissed",
+      "error"
+    ]);
   });
 
   it("open errors keep prior queue data stable and return an error signal", async () => {

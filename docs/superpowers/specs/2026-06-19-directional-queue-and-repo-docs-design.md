@@ -29,9 +29,17 @@ documentation the repository currently lacks.
 
 ## Non-Goals (YAGNI)
 
-- Forward pagination to close gaps when more than one page of new items appeared.
+- ~~Forward pagination to close gaps when more than one page of new items appeared.
   "Проверить новые" fetches only the first page; middle items in a large gap are
-  not recovered. Documented as a known limitation.
+  not recovered. Documented as a known limitation.~~
+  Done (2026-08-29): the gap turned out to be a real-world problem, not just a
+  theoretical one — DTF regularly publishes more than one page's worth of news
+  between checks, permanently stranding the middle items (unreachable by a
+  first-page-only forward check, and never revisited by "Глубже в архив" since
+  that only pages *older* than the cursor frozen at the first-ever fetch).
+  `fetchNewerItems` now pages forward up to `MAX_FETCH_PAGES_PER_ACTION` (3)
+  pages per check, same bound as the backward archive walk, still without
+  moving `lastId`.
 - A persistent "archive mode". Each archive step is a single explicit press.
 - ~~Capping the unbounded `seenIds` array. It interacts with forward dedup (capping
   could resurface old dismissed items) and is tracked as a separate follow-up.~~

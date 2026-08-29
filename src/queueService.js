@@ -76,14 +76,14 @@ function rememberFetch(state, requestedLastId, batch, now) {
   };
 }
 
-function rememberForwardFetch(state, batch, now) {
+function rememberForwardFetch(state, requestedLastId, batch, now) {
   const fetched = normalizeFetchedBatch(batch);
   const nextLastId = state.lastId === null ? fetched.lastId : state.lastId;
   const nextState = appendQueueEvent(
     state,
     "fetch",
     {
-      requestedLastId: null,
+      requestedLastId,
       resultCount: fetched.items.length,
       nextLastId
     },
@@ -281,10 +281,35 @@ export function createQueueService({
   }
 
   async function fetchNewerItems(state) {
-    const fetched = await fetchNews({});
-    const remembered = rememberForwardFetch(state, fetched, now);
-    const items = dedupeItems(remembered.items, remembered.state);
-    return { state: remembered.state, items };
+    let nextState = state;
+    let requestedLastId = null;
+
+    for (let attempt = 0; attempt < MAX_FETCH_PAGES_PER_ACTION; attempt += 1) {
+      const fetched =
+        requestedLastId === null
+          ? await fetchNews({})
+          : await fetchNews({ lastId: requestedLastId });
+      const remembered = rememberForwardFetch(nextState, requestedLastId, fetched, now);
+      nextState = remembered.state;
+
+      if (remembered.items.length === 0) {
+        break;
+      }
+
+      const items = dedupeItems(remembered.items, nextState);
+
+      if (items.length > 0) {
+        return { state: nextState, items };
+      }
+
+      requestedLastId = normalizeFetchedBatch(fetched).lastId;
+
+      if (requestedLastId === null) {
+        break;
+      }
+    }
+
+    return { state: nextState, items: [] };
   }
 
   async function advance(actionType) {
@@ -313,12 +338,13 @@ export function createQueueService({
       current: null,
       exhausted: false
     };
+    await save(nextState);
 
     try {
       const fetched = await fetchNewerItems(nextState);
       nextState = showForwardItems(fetched.state, fetched.items, now);
     } catch (error) {
-      return saveError(originalState, actionType, error);
+      return saveError(nextState, actionType, error);
     }
 
     return resultFor(await save(nextState));
