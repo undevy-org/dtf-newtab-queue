@@ -565,12 +565,18 @@ describe("queueService", () => {
 
       assert.equal(result.status, "error");
       assert.match(result.error, /DTF URL/i);
+      assert.equal(result.canGoBack, false);
       assert.deepEqual(openedUrls, []);
       assert.equal(storedState.current.url, unsafeUrl);
       assert.deepEqual(storedState.backlog.map((newsItem) => newsItem.id), [2]);
       assert.deepEqual(storedState.seenIds, []);
       assert.equal(storedState.lastId, 100);
       assert.deepEqual(storedState.events.map((event) => event.type), ["error"]);
+
+      const previousResult = await service.previous();
+
+      assert.equal(previousResult.canGoBack, false);
+      assert.deepEqual(previousResult.state, storedState);
     }
   });
 
@@ -821,6 +827,36 @@ describe("queueService", () => {
     assert.equal(stored.events[0].type, "reset");
   });
 
+  it("reset clears in-memory history so previous() cannot resurrect a pre-reset item", async () => {
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        backlog: [item(2), item(3)],
+        lastId: 300
+      }),
+      batches: [{ items: [item(10), item(11)], lastId: 1100 }]
+    });
+
+    await service.markViewed();
+    await service.markViewed();
+    const beforeReset = await store.getState();
+    assert.equal(beforeReset.current.id, 3);
+
+    const afterReset = await service.reset();
+
+    assert.equal(afterReset.status, "ready");
+    assert.equal(afterReset.canGoBack, false);
+    assert.equal(afterReset.state.current.id, 10);
+
+    const result = await service.previous();
+    const stored = await store.getState();
+
+    assert.equal(result.canGoBack, false);
+    assert.deepEqual(result.state, stored);
+    assert.equal(stored.current.id, 10);
+    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [11]);
+  });
+
   it("reset errors keep prior queue data stable and return an error signal", async () => {
     const { service, store } = await createHarness({
       initialState: stateWith({
@@ -889,11 +925,18 @@ describe("queueService", () => {
 
     assert.equal(result.status, "error");
     assert.equal(result.error, "tab blocked");
+    assert.equal(result.canGoBack, false);
     assert.equal(stored.current.id, 1);
     assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [2]);
     assert.deepEqual(stored.seenIds, []);
     assert.equal(stored.lastId, 100);
     assert.equal(stored.events.at(-1).type, "error");
+
+    const previousResult = await service.previous();
+    const afterPrevious = await store.getState();
+
+    assert.equal(previousResult.canGoBack, false);
+    assert.deepEqual(afterPrevious, stored);
   });
 
   it("caps seenIds to the newest ids when advancing past the bound", async () => {
@@ -1004,5 +1047,155 @@ describe("queueService", () => {
     assert.equal(result.status, "ready");
     assert.deepEqual(api.calls, []);
     assert.equal(stored.current.id, 8);
+  });
+});
+
+describe("previous", () => {
+  it("reports canGoBack: false right after initialize, before any advance", async () => {
+    const { service } = await createHarness({
+      batches: [{ items: [item(1), item(2)], lastId: 200 }]
+    });
+
+    const result = await service.initialize();
+
+    assert.equal(result.canGoBack, false);
+  });
+
+  it("is a no-op returning the unchanged state when there is no history", async () => {
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        backlog: [item(2)],
+        lastId: 200
+      })
+    });
+
+    const before = await store.getState();
+    const result = await service.previous();
+    const stored = await store.getState();
+
+    assert.equal(result.canGoBack, false);
+    assert.deepEqual(stored, before);
+    assert.deepEqual(result.state, before);
+  });
+
+  it("undoes markViewed: restores the item as current, un-marks it seen, requeues the next item", async () => {
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        backlog: [item(2), item(3)],
+        lastId: 300
+      })
+    });
+
+    const afterViewed = await service.markViewed();
+    assert.equal(afterViewed.canGoBack, true);
+
+    const result = await service.previous();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.equal(stored.current.id, 1);
+    assert.deepEqual(stored.seenIds, []);
+    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [2, 3]);
+  });
+
+  it("undoes openCurrent: restores the item as current, un-marks it seen, requeues the next item", async () => {
+    const openedUrls = [];
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        backlog: [item(2), item(3)],
+        lastId: 300
+      }),
+      openUrl: async (url) => {
+        openedUrls.push(url);
+      }
+    });
+
+    const afterOpen = await service.openCurrent();
+    assert.equal(afterOpen.canGoBack, true);
+    assert.deepEqual(openedUrls, ["https://dtf.ru/news/1"]);
+
+    const result = await service.previous();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.equal(stored.current.id, 1);
+    assert.deepEqual(stored.seenIds, []);
+    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [2, 3]);
+  });
+
+  it("redo via backlog: advancing again after undo shows the same item that was current before undo", async () => {
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        backlog: [item(2), item(3)],
+        lastId: 300
+      })
+    });
+
+    await service.markViewed();
+    const beforeUndo = await store.getState();
+    assert.equal(beforeUndo.current.id, 2);
+
+    await service.previous();
+    const result = await service.markViewed();
+
+    assert.equal(result.state.current.id, 2);
+  });
+
+  it("walks back more than one step across multiple previous() calls", async () => {
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        backlog: [item(2), item(3)],
+        lastId: 300
+      })
+    });
+
+    await service.markViewed();
+    await service.markViewed();
+    const afterTwoAdvances = await store.getState();
+    assert.equal(afterTwoAdvances.current.id, 3);
+
+    const firstUndo = await service.previous();
+    assert.equal(firstUndo.state.current.id, 2);
+    assert.equal(firstUndo.canGoBack, true);
+
+    const secondUndo = await service.previous();
+    const stored = await store.getState();
+
+    assert.equal(secondUndo.state.current.id, 1);
+    assert.equal(secondUndo.canGoBack, false);
+    assert.deepEqual(stored.seenIds, []);
+    assert.deepEqual(stored.backlog.map((newsItem) => newsItem.id), [2, 3]);
+  });
+
+  it("restores from the exhausted (current: null) state with an empty-but-correct backlog", async () => {
+    const { service, store } = await createHarness({
+      initialState: stateWith({
+        current: item(1),
+        lastId: 100
+      }),
+      batches: [
+        { items: [item(1)], lastId: 900 },
+        { items: [], lastId: null }
+      ]
+    });
+
+    const advanced = await service.markViewed();
+    assert.equal(advanced.state.current, null);
+    assert.equal(advanced.state.exhausted, false);
+    assert.equal(advanced.canGoBack, true);
+
+    const result = await service.previous();
+    const stored = await store.getState();
+
+    assert.equal(result.status, "ready");
+    assert.equal(stored.current.id, 1);
+    assert.deepEqual(stored.backlog, []);
+    assert.deepEqual(stored.seenIds, []);
+    assert.equal(stored.exhausted, false);
   });
 });

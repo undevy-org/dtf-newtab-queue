@@ -24,7 +24,7 @@ function statusForState(state) {
   return "idle";
 }
 
-function resultFor(state, { status = statusForState(state), error = null } = {}) {
+function baseResultFor(state, { status = statusForState(state), error = null } = {}) {
   return { state, status, error };
 }
 
@@ -215,6 +215,12 @@ export function createQueueService({
   openUrl = defaultOpenUrl,
   now = () => new Date().toISOString()
 }) {
+  let history = [];
+
+  function resultFor(state, options) {
+    return { ...baseResultFor(state, options), canGoBack: history.length > 0 };
+  }
+
   async function save(state) {
     await store.setState(state);
     return state;
@@ -320,6 +326,10 @@ export function createQueueService({
     }
 
     const currentId = originalState.current.id;
+    history.push({
+      item: originalState.current,
+      hadSeenId: originalState.seenIds.includes(currentId)
+    });
     let nextState = addSeenId(originalState, currentId);
     nextState = appendQueueEvent(
       nextState,
@@ -417,6 +427,11 @@ export function createQueueService({
           return saveError(state, "opened", error);
         }
 
+        history.push({
+          item: state.current,
+          hadSeenId: state.seenIds.includes(state.current.id)
+        });
+
         let openedState = addSeenId(state, state.current.id);
         openedState = appendQueueEvent(
           openedState,
@@ -459,7 +474,9 @@ export function createQueueService({
         const state = await store.getState();
 
         try {
-          return resultFor(await createStateFromFirstBatch("reset"));
+          const nextState = await createStateFromFirstBatch("reset");
+          history = [];
+          return resultFor(nextState);
         } catch (error) {
           return saveError(state, "reset", error);
         }
@@ -485,6 +502,40 @@ export function createQueueService({
         } catch (error) {
           return saveError(state, "archive", error);
         }
+      });
+    },
+
+    async previous() {
+      return withQueueMutationLock(async () => {
+        if (history.length === 0) {
+          return resultFor(await store.getState());
+        }
+
+        const entry = history.pop();
+        const state = await store.getState();
+        const backlog = state.current ? [state.current, ...state.backlog] : state.backlog;
+        let nextState = {
+          ...state,
+          current: entry.item,
+          backlog,
+          exhausted: false
+        };
+
+        if (!entry.hadSeenId) {
+          nextState = {
+            ...nextState,
+            seenIds: nextState.seenIds.filter((id) => id !== entry.item.id)
+          };
+        }
+
+        nextState = appendQueueEvent(
+          nextState,
+          "previous",
+          { id: entry.item.id },
+          now
+        );
+
+        return resultFor(await save(nextState));
       });
     }
   };

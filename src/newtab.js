@@ -230,12 +230,16 @@ function renderLoading(message = "Подключаюсь к очереди.") {
   });
 }
 
-function renderCard(state, error = null, busyMessage = "") {
+function renderCard(state, error = null, busyMessage = "", canGoBack = false) {
   const item = state.current;
   const actions = [
     createButton("Просмотрел", "viewed"),
     createButton("Перейти", "open", { primary: true })
   ];
+
+  if (canGoBack) {
+    actions.unshift(createButton("Предыдущая", "previous"));
+  }
 
   renderShell({
     title: item.title,
@@ -246,8 +250,8 @@ function renderCard(state, error = null, busyMessage = "") {
   });
 }
 
-function renderArchiveEnded(error = null, busyMessage = "") {
-  renderShell({
+function renderArchiveEnded(error = null, busyMessage = "", canGoBack = false) {
+  const options = {
     title: "Вы прочитали всё, включая архив",
     meta: "Новых карточек нет. Можно проверить ещё раз позже.",
     status: busy ? busyMessage : null,
@@ -257,11 +261,17 @@ function renderArchiveEnded(error = null, busyMessage = "") {
       createButton("Сбросить", "reset"),
       createButton("Проверить новые", "retry", { primary: true })
     ]
-  });
+  };
+
+  if (canGoBack) {
+    options.actions.unshift(createButton("Предыдущая", "previous"));
+  }
+
+  renderShell(options);
 }
 
-function renderFork(error = null, busyMessage = "") {
-  renderShell({
+function renderFork(error = null, busyMessage = "", canGoBack = false) {
+  const options = {
     title: "Вы прочитали всё свежее",
     meta: "Проверьте новые сверху или загляните глубже в архив.",
     status: busy ? busyMessage : null,
@@ -272,7 +282,13 @@ function renderFork(error = null, busyMessage = "") {
       createButton("Глубже в архив", "archive"),
       createButton("Проверить новые", "retry", { primary: true })
     ]
-  });
+  };
+
+  if (canGoBack) {
+    options.actions.unshift(createButton("Предыдущая", "previous"));
+  }
+
+  renderShell(options);
 }
 
 function renderResult(result) {
@@ -283,19 +299,19 @@ function renderResult(result) {
     return;
   }
 
-  const { state, error = null } = result;
+  const { state, error = null, canGoBack = false } = result;
 
   if (state.current) {
-    renderCard(state, error, busyMessage);
+    renderCard(state, error, busyMessage, canGoBack);
     return;
   }
 
   if (state.exhausted) {
-    renderArchiveEnded(error, busyMessage);
+    renderArchiveEnded(error, busyMessage, canGoBack);
     return;
   }
 
-  renderFork(error, busyMessage);
+  renderFork(error, busyMessage, canGoBack);
 }
 
 function setBusy(nextBusy, message = "") {
@@ -345,6 +361,9 @@ function createUnavailableService(message) {
       return result;
     },
     async openCurrent() {
+      return result;
+    },
+    async previous() {
       return result;
     },
     async loadArchive() {
@@ -1384,6 +1403,10 @@ if (app) {
       );
     } else if (action === "open") {
       void runAction("Открываю ссылку...", () => service.openCurrent());
+    } else if (action === "previous") {
+      void runAction("Возвращаюсь к предыдущей карточке...", () =>
+        service.previous()
+      );
     } else if (action === "archive") {
       void runAction("Загружаю архив...", () => service.loadArchive());
     } else if (action === "retry") {
